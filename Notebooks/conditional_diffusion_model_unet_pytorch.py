@@ -257,7 +257,7 @@ class DDPM(nn.Module):
         # return MSE between added noise, and our predicted noise
         return self.loss_mse(noise, self.nn_model(x_t, w, _ts / self.n_T))
 
-    def sample(self, n_sample, size, device, guide_w = 0.0):
+    def sample(self, n_sample, size, device, guide_w = 0.0, w=None):
         # we follow the guidance sampling scheme described in 'Classifier-Free Diffusion Guidance'
         # to make the fwd passes efficient, we concat two versions of the dataset,
         # one with context_mask=0 and the other context_mask=1
@@ -265,16 +265,17 @@ class DDPM(nn.Module):
         # where w>0 means more guidance
 
         x_i = torch.randn(n_sample, *size).to(device)  # x_T ~ N(0, 1), sample initial noise
-        c_i = torch.arange(0,10).to(device) # context for us just cycles throught the mnist labels
-        c_i = c_i.repeat(int(n_sample/c_i.shape[0]))
+        # c_i = torch.arange(0,10).to(device) # context for us just cycles throught the mnist labels
+        # c_i = c_i.repeat(int(n_sample/c_i.shape[0]))
+        # w_i = torch.randn(n_sample, 150).to(device)
 
         # don't drop context at test time
-        context_mask = torch.zeros_like(c_i).to(device)
+        # context_mask = torch.zeros_like(c_i).to(device)
 
         # double the batch
-        c_i = c_i.repeat(2)
-        context_mask = context_mask.repeat(2)
-        context_mask[n_sample:] = 1. # makes second half of batch context free
+        # c_i = c_i.repeat(2)
+        # context_mask = context_mask.repeat(2)
+        # context_mask[n_sample:] = 1. # makes second half of batch context free
 
         x_i_store = [] # keep track of generated steps in case want to plot something 
         print()
@@ -286,11 +287,12 @@ class DDPM(nn.Module):
             # double batch
             x_i = x_i.repeat(2,1,1,1)
             t_is = t_is.repeat(2,1,1,1)
+            w_i = w.repeat(2,1)
 
             z = torch.randn(n_sample, *size).to(device) if i > 1 else 0
 
             # split predictions and compute weighting
-            eps = self.nn_model(x_i, c_i, t_is) #, context_mask)
+            eps = self.nn_model(x_i, w_i, t_is) #, context_mask)
             eps1 = eps[:n_sample]
             eps2 = eps[n_sample:]
             eps = (1+guide_w)*eps1 - guide_w*eps2
@@ -329,12 +331,12 @@ def train_custom_images(image_path, weight_path):
     # Hyperparameters
     n_epoch = 20
     batch_size = 32
-    n_T = 400
+    n_T = 2 # 400
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     n_feat = 128
-    lrate = 1e-4
+    lrate = 1e-2
     save_model = False
-    save_dir = '../models/diffusion_outputs_custom/'
+    save_dir = './models/diffusion_outputs_custom/'
 
     # Data transformation
     transform = transforms.Compose([
@@ -355,7 +357,6 @@ def train_custom_images(image_path, weight_path):
     for ep in range(n_epoch):
         print(f'epoch {ep}')
         # Display ddpm architecture
-        print(ddpm)
         ddpm.train()
 
         # linear lrate decay
@@ -367,6 +368,7 @@ def train_custom_images(image_path, weight_path):
             optim.zero_grad()
             x = x.to(device)
             w = w.to(device)
+            w = w.float() # TODO: Check if this helps
             loss = ddpm(x, w)
             loss.backward()
             if loss_ema is None:
@@ -380,11 +382,20 @@ def train_custom_images(image_path, weight_path):
         # followed by real images (bottom rows)
         ddpm.eval()
         with torch.no_grad():
+            for x, w in dataloader:  # Iterate through dataloader for correct batch size
+                x = x.to(device)
+                w = w.to(device).float()
+                x_gen, x_gen_store = ddpm.sample(x.shape[0], x.shape[1:], device, guide_w=0.0, w=w)
             n_sample = 10
             # for w_i, w in enumerate(ws_test):
             for i in range(n_sample):
-                w_sample = torch.randn(1, 150).to(device)
-                x_gen, x_gen_store = ddpm.sample(1, (1, 150, 150), device, guide_w=0.0) # Adjust guide_w as needed
+                # import random
+                # n_rand = random.randint(0, 149)
+                n_rand = i
+                w_sample = w[n_rand].unsqueeze(0)
+                # w_sample = torch.randn(1, 150).to(device)
+                
+                x_gen, x_gen_store = ddpm.sample(1, (1, 150, 150), device, guide_w=0.0, w=w_sample) # Adjust guide_w as needed
 
                 grid = make_grid(x_gen*-1 + 1, nrow=1)
                 save_image(grid, save_dir + f"image_{i}.png")
@@ -395,12 +406,6 @@ def train_custom_images(image_path, weight_path):
             print('saved model at ' + save_dir + f"model_{ep}.pth")
 
 if __name__ == "__main__":
-    image_path = "../Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy"
-    weight_path = "../Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca.npy"
+    image_path = "/Users/gvssriram/Desktop/projects-internship/PalmGenAI/Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy"
+    weight_path = "/Users/gvssriram/Desktop/projects-internship/PalmGenAI/Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca.npy"
     train_custom_images(image_path, weight_path)
-
-
-
-
-
-
