@@ -162,5 +162,8 @@ cython_debug/
 #.idea/
 
 *.DS_Store
-Datasets/
+Datasets/IITD Palmprint V1/Left hand
+Datasets/IITD Palmprint V1/Right hand
+Datasets/IITD Palmprint V1/Segmented
+Datasets/IITD Palmprint V1/Readme.txt
 Notebooks/logs/
