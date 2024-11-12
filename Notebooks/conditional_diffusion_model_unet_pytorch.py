@@ -1,11 +1,4 @@
-import subprocess
-try:
-    from tqdm import tqdm
-except ImportError:
-    subprocess.check_call(["conda", "install", "pip"])
-    subprocess.check_call(["pip", "install", "tqdm"])
-    from tqdm import tqdm
-
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -326,9 +319,9 @@ class CustomImageDataset(Dataset):
 def train_custom_images(image_path, weight_path):
 
     # Hyperparameters
-    n_epoch = 20
+    n_epoch = 200
     batch_size = 32
-    n_T = 2 # 400
+    n_T = 400
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     n_feat = 128
     lrate = 1e-2
