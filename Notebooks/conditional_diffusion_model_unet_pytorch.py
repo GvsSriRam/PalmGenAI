@@ -2,6 +2,7 @@ import subprocess
 try:
     from tqdm import tqdm
 except ImportError:
+    subprocess.check_call(["conda", "install", "pip"])
     subprocess.check_call(["pip", "install", "tqdm"])
     from tqdm import tqdm
 
