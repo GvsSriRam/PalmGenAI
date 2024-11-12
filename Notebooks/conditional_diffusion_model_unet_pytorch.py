@@ -1,9 +1,15 @@
-from tqdm import tqdm
+import subprocess
+try:
+    from tqdm import tqdm
+except ImportError:
+    subprocess.check_call(["pip", "install", "tqdm"])
+    from tqdm import tqdm
+
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torchvision.utils import save_image, make_grid
-import matplotlib.pyplot as plt
+from torchvision import transforms
 import numpy as np
 
 ''' 
@@ -22,16 +28,6 @@ This technique also features in ImageGen 'Photorealistic Text-to-Image Diffusion
 https://arxiv.org/abs/2205.11487
 
 '''
-
-from tqdm import tqdm
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import DataLoader
-from torchvision import transforms
-from torchvision.utils import save_image, make_grid
-import matplotlib.pyplot as plt
-import numpy as np
 
 class ResidualConvBlock(nn.Module):
     def __init__(
