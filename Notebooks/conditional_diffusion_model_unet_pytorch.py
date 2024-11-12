@@ -396,6 +396,6 @@ def train_custom_images(image_path, weight_path):
             print('saved model at ' + save_dir + f"model_{ep}.pth")
 
 if __name__ == "__main__":
-    image_path = "/Users/gvssriram/Desktop/projects-internship/PalmGenAI/Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy"
-    weight_path = "/Users/gvssriram/Desktop/projects-internship/PalmGenAI/Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca.npy"
+    image_path = "Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy"
+    weight_path = "Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca.npy"
     train_custom_images(image_path, weight_path)
