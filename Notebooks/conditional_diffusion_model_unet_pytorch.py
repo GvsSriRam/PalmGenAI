@@ -7,11 +7,9 @@ except ImportError:
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torchvision.utils import save_image, make_grid
 from torchvision import transforms
-import matplotlib.pyplot as plt
 import numpy as np
 
 ''' 
