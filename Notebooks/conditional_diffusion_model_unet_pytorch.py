@@ -306,7 +306,7 @@ class CustomImageDataset(Dataset):
         self.transform = transform
 
     def __len__(self):
-        return len(self.images)
+        return int(len(self.images) * 0.1)
 
     def __getitem__(self, idx):
         image = self.images[idx]
@@ -319,10 +319,11 @@ class CustomImageDataset(Dataset):
 def train_custom_images(image_path, weight_path):
 
     # Hyperparameters
-    n_epoch = 200
-    batch_size = 32
-    n_T = 400
+    n_epoch = 2
+    batch_size = 8
+    n_T = 50
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
     n_feat = 128
     lrate = 1e-2
     save_model = False
