@@ -320,11 +320,13 @@ class CustomImageDataset(Dataset):
 def train_custom_images(image_path, weight_path):
 
     # Hyperparameters
-    n_epoch = 2
-    batch_size = 8
-    n_T = 50
+    n_epoch = 1
+    batch_size = 32
+    n_T = 10
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}")
+    print(f"Current GPU: {torch.cuda.current_device()}")
+    print(f"Memory allocated: {torch.cuda.memory_allocated()}")
+    print(f"Memory cached: {torch.cuda.memory_cached()}")
     n_feat = 128
     lrate = 1e-2
     save_model = False
@@ -383,13 +385,12 @@ def train_custom_images(image_path, weight_path):
             for x, w in dataloader:  # Iterate through dataloader for correct batch size
                 x = x.to(device)
                 w = w.to(device).float()
-                x_gen, x_gen_store = ddpm.sample(x.shape[0], x.shape[1:], device, guide_w=0.0, w=w)
-            n_sample = 10
+                break
+                # x_gen, x_gen_store = ddpm.sample(x.shape[0], x.shape[1:], device, guide_w=0.0, w=w)
+            n_sample = min(10, x.shape[0])
             # for w_i, w in enumerate(ws_test):
             for i in range(n_sample):
-                n_rand = i
-                w_sample = w[n_rand].unsqueeze(0)
-                # w_sample = torch.randn(1, 150).to(device)
+                w_sample = w[i].unsqueeze(0)
                 
                 x_gen, x_gen_store = ddpm.sample(1, (1, 150, 150), device, guide_w=0.0, w=w_sample) # Adjust guide_w as needed
 
