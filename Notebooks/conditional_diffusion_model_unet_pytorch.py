@@ -329,6 +329,11 @@ def train_custom_images(image_path, weight_path):
     save_model = False
     save_dir = './models/diffusion_outputs_custom/'
 
+    # Create save directory
+    import os
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
     # Data transformation
     transform = transforms.Compose([
         transforms.ToTensor(), #Normalize to 0-1 if needed
