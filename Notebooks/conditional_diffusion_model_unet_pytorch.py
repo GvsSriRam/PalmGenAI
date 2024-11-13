@@ -5,6 +5,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision.utils import save_image, make_grid
 from torchvision import transforms
 import numpy as np
+from time import time
 
 ''' 
 This script does conditional image generation on MNIST, using a diffusion model
@@ -353,7 +354,6 @@ def train_custom_images(image_path, weight_path):
     start = time()
     for ep in range(n_epoch):
         print(f'epoch {ep}')
-        from time import time
         # Display ddpm architecture
         ddpm.train()
 
@@ -387,8 +387,6 @@ def train_custom_images(image_path, weight_path):
             n_sample = 10
             # for w_i, w in enumerate(ws_test):
             for i in range(n_sample):
-                # import random
-                # n_rand = random.randint(0, 149)
                 n_rand = i
                 w_sample = w[n_rand].unsqueeze(0)
                 # w_sample = torch.randn(1, 150).to(device)
