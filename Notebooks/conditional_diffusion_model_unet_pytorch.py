@@ -329,6 +329,11 @@ def train_custom_images(image_path, weight_path):
     save_model = False
     save_dir = './models/diffusion_outputs_custom/'
 
+    # Create save directory
+    import os
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
     # Data transformation
     transform = transforms.Compose([
         transforms.ToTensor(), #Normalize to 0-1 if needed
@@ -345,8 +350,10 @@ def train_custom_images(image_path, weight_path):
     # optionally load a model
     # ddpm.load_state_dict(torch.load("./data/diffusion_outputs/ddpm_unet01_mnist_9.pth"))
 
+    start = time()
     for ep in range(n_epoch):
         print(f'epoch {ep}')
+        from time import time
         # Display ddpm architecture
         ddpm.train()
 
@@ -395,6 +402,9 @@ def train_custom_images(image_path, weight_path):
         if save_model and ep == int(n_epoch-1):
             torch.save(ddpm.state_dict(), save_dir + f"model_{ep}.pth")
             print('saved model at ' + save_dir + f"model_{ep}.pth")
+        print(f'Epoch took {time()-start} seconds')
+        start = time()
+
 
 if __name__ == "__main__":
     image_path = "Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy"
