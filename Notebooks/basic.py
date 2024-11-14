@@ -1,4 +1,3 @@
-# %%
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -6,12 +5,23 @@ import numpy as np
 import torch.nn.functional as F
 import math
 
+# Check if GPU is available
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    print("GPU is available and being used")
+else:
+    device = torch.device("cpu")
+    print("GPU not available, using CPU")
+
 class ConditionalDiffusionModel(nn.Module):
     def __init__(self, input_size, weight_template_size):
         super(ConditionalDiffusionModel, self).__init__()
         self.fc1 = nn.Linear(input_size + weight_template_size, 1024)
         self.fc2 = nn.Linear(1024, 512)
         self.fc3 = nn.Linear(512, input_size)
+
+        # Move model to the selected device
+        self.to(device)
 
     def forward(self, x, condition):
         # Concatenate the image and weight template (condition)
@@ -21,8 +31,6 @@ class ConditionalDiffusionModel(nn.Module):
         x = self.fc3(x)
         return x
 
-
-# %%
 class DiffusionTrainer:
     def __init__(self, model, timesteps=1000):
         self.model = model
@@ -49,9 +57,11 @@ class DiffusionTrainer:
     def train(self, data_loader, optimizer, weight_templates, num_epochs=100):
         for epoch in range(num_epochs):
             for i, (x_start, idx) in enumerate(data_loader):
-                t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
+                # Move data to the selected device
+                x_start = x_start.to(device)
+                t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(device)
                 x_noisy = self.q_sample(x_start, t)
-                condition = weight_templates[idx].to(x_start.device)
+                condition = weight_templates[idx].to(device)
 
                 loss = self.loss_fn(x_noisy, t, x_start, condition)
 
@@ -91,8 +101,6 @@ data_loader = DataLoader(dataset, batch_size=32, shuffle=True)
 # Train the model
 trainer.train(data_loader, optimizer, weight_templates, num_epochs=500)
 
-
-# %%
 class DiffusionSampler:
     def __init__(self, model, timesteps=1000):
         self.model = model
@@ -110,7 +118,9 @@ class DiffusionSampler:
         return predicted_x_start * torch.sqrt(alpha_bar_t_prev) + noise * torch.sqrt(1 - alpha_bar_t_prev)
 
     def sample(self, condition, img_shape=(150, 150, 1)):
-        x = torch.randn((1, np.prod(img_shape))).to(condition.device)
+        # Move condition to the selected device
+        condition = condition.to(device)
+        x = torch.randn((1, np.prod(img_shape))).to(device)
         for t in reversed(range(self.timesteps)):
             x = self.p_sample(x, t, condition)
         return x.view(img_shape)
@@ -129,28 +139,7 @@ generated_image = generated_image.detach().cpu().numpy()
 # Reshape to original image dimensions and save or display
 generated_image = generated_image.reshape(150, 150, 1)
 
-
-# %%
 import matplotlib.pyplot as plt
 
-# Displaying the original and generated images side by side
-fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-
-# Original image
-axes[0].imshow(images[0].reshape(150, 150), cmap='gray')
-axes[0].set_title("Original Image")
-axes[0].axis('off')
-
-# Generated image
-axes[1].imshow(generated_image.reshape(150, 150), cmap='gray')
-axes[1].set_title("Generated Image")
-axes[1].axis('off')
-
-# Show the plot
-plt.show()
-
-# %%
 # Save the generated image
 plt.imsave("generated_image.png", generated_image.reshape(150, 150), cmap='gray')
-
-
