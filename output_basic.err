@@ -1,0 +1,6 @@
+/home/vgiduthu/miniconda3/envs/pytorch/lib/python3.12/site-packages/torch/cuda/__init__.py:784: UserWarning: Can't get device UUID
+  warnings.warn("Can't get device UUID")
+/home/vgiduthu/PalmGenAI/Notebooks/basic.py:58: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor).
+  alpha_bar_t = torch.tensor(self.alpha_bar[t], dtype=torch.float32, device=x_start.device).view(-1, 1)
+/home/vgiduthu/PalmGenAI/Notebooks/basic.py:143: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor).
+  user_weight_template = torch.tensor(user_weight_template).float().unsqueeze(0)
