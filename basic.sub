@@ -1,8 +1,8 @@
 executable   = pytorch_wrapper.sh
 
-output       = output_pytorch_demo.out
-error        = output_pytorch_demo.err
-log          = logs_pytorch_demo.log
+output       = output_basic.out
+error        = output_basic.err
+log          = logs_basic.log
 
 Requirements = CUDADriverVersion >= 12.0
 
