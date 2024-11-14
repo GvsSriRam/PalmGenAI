@@ -320,10 +320,11 @@ class CustomImageDataset(Dataset):
 def train_custom_images(image_path, weight_path):
 
     # Hyperparameters
-    n_epoch = 1
+    n_epoch = 200
     batch_size = 32
-    n_T = 10
+    n_T = 100
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    print(f"Device: {device}")
     print(f"Current GPU: {torch.cuda.current_device()}")
     print(f"Memory allocated: {torch.cuda.memory_allocated()}")
     print(f"Memory cached: {torch.cuda.memory_cached()}")
