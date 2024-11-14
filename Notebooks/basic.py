@@ -4,6 +4,7 @@ import torch.optim as optim
 import numpy as np
 import torch.nn.functional as F
 import math
+from time import time
 
 # Check if GPU is available
 if torch.cuda.is_available():
@@ -55,6 +56,7 @@ class DiffusionTrainer:
         return F.mse_loss(predicted_x_start, x_start)
 
     def train(self, data_loader, optimizer, weight_templates, num_epochs=100):
+        start_time = time()
         for epoch in range(num_epochs):
             for i, (x_start, idx) in enumerate(data_loader):
                 # Move data to the selected device
@@ -70,6 +72,9 @@ class DiffusionTrainer:
                 optimizer.step()
 
             print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
+            print(f'Epoch took {time()-start_time} seconds')
+            start_time = time()
+
 
 # Input image size and weight template size
 input_size = 150 * 150 * 1  # Example for 64x64 RGB images
