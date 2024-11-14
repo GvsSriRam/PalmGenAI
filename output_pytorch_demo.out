@@ -1,0 +1,96 @@
+Current GPU: 0
+Memory allocated: 0
+Memory cached: 0
+(1040, 150, 150, 1) (1040, 150)
+epoch 0
+
+sampling timestep 10sampling timestep 9sampling timestep 8sampling timestep 7sampling timestep 6sampling timestep 5sampling timestep 4sampling timestep 3sampling timestep 2sampling timestep 1saved image at ./models/diffusion_outputs_custom/image_ep0_wtensor([[-0.6065, -1.0706,  0.5150,  ...,  0.7931,  1.3704,  1.3185],
+        [-0.6709,  1.9924,  1.3213,  ..., -0.3014, -1.7530,  0.8526],
+        [ 0.6933,  1.4806, -0.3195,  ...,  1.5518, -2.2677, -3.2208],
+        ...,
+        [ 0.2986, -1.4927, -0.4366,  ..., -1.8447,  0.8177,  1.2107],
+        [-0.4832, -0.4440,  0.1316,  ..., -0.2143,  0.1758, -2.2623],
+        [ 1.4254, -0.3887, -0.4784,  ..., -0.0902, -1.3275, -0.5759]],
+       device='cuda:0').png
+
+sampling timestep 10sampling timestep 9sampling timestep 8sampling timestep 7sampling timestep 6sampling timestep 5sampling timestep 4sampling timestep 3sampling timestep 2sampling timestep 1saved image at ./models/diffusion_outputs_custom/image_ep0_wtensor([[-0.6065, -1.0706,  0.5150,  ...,  0.7931,  1.3704,  1.3185],
+        [-0.6709,  1.9924,  1.3213,  ..., -0.3014, -1.7530,  0.8526],
+        [ 0.6933,  1.4806, -0.3195,  ...,  1.5518, -2.2677, -3.2208],
+        ...,
+        [ 0.2986, -1.4927, -0.4366,  ..., -1.8447,  0.8177,  1.2107],
+        [-0.4832, -0.4440,  0.1316,  ..., -0.2143,  0.1758, -2.2623],
+        [ 1.4254, -0.3887, -0.4784,  ..., -0.0902, -1.3275, -0.5759]],
+       device='cuda:0').png
+
+sampling timestep 10sampling timestep 9sampling timestep 8sampling timestep 7sampling timestep 6sampling timestep 5sampling timestep 4sampling timestep 3sampling timestep 2sampling timestep 1saved image at ./models/diffusion_outputs_custom/image_ep0_wtensor([[-0.6065, -1.0706,  0.5150,  ...,  0.7931,  1.3704,  1.3185],
+        [-0.6709,  1.9924,  1.3213,  ..., -0.3014, -1.7530,  0.8526],
+        [ 0.6933,  1.4806, -0.3195,  ...,  1.5518, -2.2677, -3.2208],
+        ...,
+        [ 0.2986, -1.4927, -0.4366,  ..., -1.8447,  0.8177,  1.2107],
+        [-0.4832, -0.4440,  0.1316,  ..., -0.2143,  0.1758, -2.2623],
+        [ 1.4254, -0.3887, -0.4784,  ..., -0.0902, -1.3275, -0.5759]],
+       device='cuda:0').png
+
+sampling timestep 10sampling timestep 9sampling timestep 8sampling timestep 7sampling timestep 6sampling timestep 5sampling timestep 4sampling timestep 3sampling timestep 2sampling timestep 1saved image at ./models/diffusion_outputs_custom/image_ep0_wtensor([[-0.6065, -1.0706,  0.5150,  ...,  0.7931,  1.3704,  1.3185],
+        [-0.6709,  1.9924,  1.3213,  ..., -0.3014, -1.7530,  0.8526],
+        [ 0.6933,  1.4806, -0.3195,  ...,  1.5518, -2.2677, -3.2208],
+        ...,
+        [ 0.2986, -1.4927, -0.4366,  ..., -1.8447,  0.8177,  1.2107],
+        [-0.4832, -0.4440,  0.1316,  ..., -0.2143,  0.1758, -2.2623],
+        [ 1.4254, -0.3887, -0.4784,  ..., -0.0902, -1.3275, -0.5759]],
+       device='cuda:0').png
+
+sampling timestep 10sampling timestep 9sampling timestep 8sampling timestep 7sampling timestep 6sampling timestep 5sampling timestep 4sampling timestep 3sampling timestep 2sampling timestep 1saved image at ./models/diffusion_outputs_custom/image_ep0_wtensor([[-0.6065, -1.0706,  0.5150,  ...,  0.7931,  1.3704,  1.3185],
+        [-0.6709,  1.9924,  1.3213,  ..., -0.3014, -1.7530,  0.8526],
+        [ 0.6933,  1.4806, -0.3195,  ...,  1.5518, -2.2677, -3.2208],
+        ...,
+        [ 0.2986, -1.4927, -0.4366,  ..., -1.8447,  0.8177,  1.2107],
+        [-0.4832, -0.4440,  0.1316,  ..., -0.2143,  0.1758, -2.2623],
+        [ 1.4254, -0.3887, -0.4784,  ..., -0.0902, -1.3275, -0.5759]],
+       device='cuda:0').png
+
+sampling timestep 10sampling timestep 9sampling timestep 8sampling timestep 7sampling timestep 6sampling timestep 5sampling timestep 4sampling timestep 3sampling timestep 2sampling timestep 1saved image at ./models/diffusion_outputs_custom/image_ep0_wtensor([[-0.6065, -1.0706,  0.5150,  ...,  0.7931,  1.3704,  1.3185],
+        [-0.6709,  1.9924,  1.3213,  ..., -0.3014, -1.7530,  0.8526],
+        [ 0.6933,  1.4806, -0.3195,  ...,  1.5518, -2.2677, -3.2208],
+        ...,
+        [ 0.2986, -1.4927, -0.4366,  ..., -1.8447,  0.8177,  1.2107],
+        [-0.4832, -0.4440,  0.1316,  ..., -0.2143,  0.1758, -2.2623],
+        [ 1.4254, -0.3887, -0.4784,  ..., -0.0902, -1.3275, -0.5759]],
+       device='cuda:0').png
+
+sampling timestep 10sampling timestep 9sampling timestep 8sampling timestep 7sampling timestep 6sampling timestep 5sampling timestep 4sampling timestep 3sampling timestep 2sampling timestep 1saved image at ./models/diffusion_outputs_custom/image_ep0_wtensor([[-0.6065, -1.0706,  0.5150,  ...,  0.7931,  1.3704,  1.3185],
+        [-0.6709,  1.9924,  1.3213,  ..., -0.3014, -1.7530,  0.8526],
+        [ 0.6933,  1.4806, -0.3195,  ...,  1.5518, -2.2677, -3.2208],
+        ...,
+        [ 0.2986, -1.4927, -0.4366,  ..., -1.8447,  0.8177,  1.2107],
+        [-0.4832, -0.4440,  0.1316,  ..., -0.2143,  0.1758, -2.2623],
+        [ 1.4254, -0.3887, -0.4784,  ..., -0.0902, -1.3275, -0.5759]],
+       device='cuda:0').png
+
+sampling timestep 10sampling timestep 9sampling timestep 8sampling timestep 7sampling timestep 6sampling timestep 5sampling timestep 4sampling timestep 3sampling timestep 2sampling timestep 1saved image at ./models/diffusion_outputs_custom/image_ep0_wtensor([[-0.6065, -1.0706,  0.5150,  ...,  0.7931,  1.3704,  1.3185],
+        [-0.6709,  1.9924,  1.3213,  ..., -0.3014, -1.7530,  0.8526],
+        [ 0.6933,  1.4806, -0.3195,  ...,  1.5518, -2.2677, -3.2208],
+        ...,
+        [ 0.2986, -1.4927, -0.4366,  ..., -1.8447,  0.8177,  1.2107],
+        [-0.4832, -0.4440,  0.1316,  ..., -0.2143,  0.1758, -2.2623],
+        [ 1.4254, -0.3887, -0.4784,  ..., -0.0902, -1.3275, -0.5759]],
+       device='cuda:0').png
+
+sampling timestep 10sampling timestep 9sampling timestep 8sampling timestep 7sampling timestep 6sampling timestep 5sampling timestep 4sampling timestep 3sampling timestep 2sampling timestep 1saved image at ./models/diffusion_outputs_custom/image_ep0_wtensor([[-0.6065, -1.0706,  0.5150,  ...,  0.7931,  1.3704,  1.3185],
+        [-0.6709,  1.9924,  1.3213,  ..., -0.3014, -1.7530,  0.8526],
+        [ 0.6933,  1.4806, -0.3195,  ...,  1.5518, -2.2677, -3.2208],
+        ...,
+        [ 0.2986, -1.4927, -0.4366,  ..., -1.8447,  0.8177,  1.2107],
+        [-0.4832, -0.4440,  0.1316,  ..., -0.2143,  0.1758, -2.2623],
+        [ 1.4254, -0.3887, -0.4784,  ..., -0.0902, -1.3275, -0.5759]],
+       device='cuda:0').png
+
+sampling timestep 10sampling timestep 9sampling timestep 8sampling timestep 7sampling timestep 6sampling timestep 5sampling timestep 4sampling timestep 3sampling timestep 2sampling timestep 1saved image at ./models/diffusion_outputs_custom/image_ep0_wtensor([[-0.6065, -1.0706,  0.5150,  ...,  0.7931,  1.3704,  1.3185],
+        [-0.6709,  1.9924,  1.3213,  ..., -0.3014, -1.7530,  0.8526],
+        [ 0.6933,  1.4806, -0.3195,  ...,  1.5518, -2.2677, -3.2208],
+        ...,
+        [ 0.2986, -1.4927, -0.4366,  ..., -1.8447,  0.8177,  1.2107],
+        [-0.4832, -0.4440,  0.1316,  ..., -0.2143,  0.1758, -2.2623],
+        [ 1.4254, -0.3887, -0.4784,  ..., -0.0902, -1.3275, -0.5759]],
+       device='cuda:0').png
+Epoch took 80.77825593948364 seconds
