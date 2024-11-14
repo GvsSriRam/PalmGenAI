@@ -88,7 +88,6 @@ class UnetUp(nn.Module):
         self.model = nn.Sequential(*layers)
 
     def forward(self, x, skip):
-        # print(x.shape, skip.shape)
         x = torch.cat((x, skip), 1)
         x = self.model(x)
         return x
@@ -107,7 +106,6 @@ class UnetUp2(nn.Module):
         self.model = nn.Sequential(*layers)
 
     def forward(self, x, skip):
-        # print(x.shape, skip.shape)
         x = torch.cat((x, skip), 1)
         x = self.model(x)
         return x
@@ -271,7 +269,8 @@ class DDPM(nn.Module):
         x_i_store = [] # keep track of generated steps in case want to plot something 
         print()
         for i in range(self.n_T, 0, -1):
-            print(f'sampling timestep {i}',end='\r')
+            if i%100==0 or i==self.n_T or i<8:
+                print(f'sampling timestep {i}',end='\r')
             t_is = torch.tensor([i / self.n_T]).to(device)
             t_is = t_is.repeat(n_sample,1,1,1)
 
@@ -303,7 +302,6 @@ class CustomImageDataset(Dataset):
     def __init__(self, image_path, weight_path, transform=None):
         self.images = np.load(image_path)
         self.weights = np.load(weight_path)
-        print(self.images.shape, self.weights.shape)
         self.transform = transform
 
     def __len__(self):
@@ -397,7 +395,7 @@ def train_custom_images(image_path, weight_path):
 
                 grid = make_grid(x_gen*-1 + 1, nrow=1)
                 save_image(grid, save_dir + f"image_{i}.png")
-                print('saved image at ' + save_dir + f"image_{i}.png")
+                # print('saved image at ' + save_dir + f"image_{i}.png")
         # optionally save model
         if save_model and ep == int(n_epoch-1):
             torch.save(ddpm.state_dict(), save_dir + f"model_{ep}.pth")
