@@ -1,4 +1,4 @@
-executable   = pytorch_wrapper.sh
+executable   = pytorch_wrapper_basic.sh
 
 output       = output_basic.out
 error        = output_basic.err
