@@ -5,6 +5,8 @@ import numpy as np
 import torch.nn.functional as F
 import math
 from time import time
+from torch.utils.data import DataLoader, TensorDataset
+import cv2
 
 # Check if GPU is available
 if torch.cuda.is_available():
@@ -94,9 +96,6 @@ trainer = DiffusionTrainer(model)
 # Example: Data loading (assume images and weight templates are in NumPy format)
 # Here `images.npy` contains the training images and `weight_templates.npy` contains the corresponding weight templates.
 
-import numpy as np
-from torch.utils.data import DataLoader, TensorDataset
-
 # Load images and weight templates
 images = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy")  # Shape: (N, 64, 64, 3)
 weight_templates = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca.npy")  # Shape: (N, 256)
@@ -150,7 +149,5 @@ generated_image = generated_image.detach().cpu().numpy()
 # Reshape to original image dimensions and save or display
 generated_image = generated_image.reshape(150, 150, 1)
 
-import matplotlib.pyplot as plt
-
-# Save the generated image
-plt.imsave("generated_image.png", generated_image.reshape(150, 150), cmap='gray')
+# Save generated image
+cv2.imwrite("generated_image.png", generated_image)
