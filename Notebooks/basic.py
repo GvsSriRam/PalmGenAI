@@ -40,6 +40,12 @@ class DiffusionTrainer:
         self.alpha = 1 - self.beta
         self.alpha_bar = np.cumprod(self.alpha)
 
+        # Move alpha_bar to the selected device
+        self.alpha_bar = torch.tensor(self.alpha_bar, dtype=torch.float32).to(device)
+
+        # Move model to the selected device
+        self.model.to(device)
+
     def sample_noise(self, shape):
         return torch.randn(shape)
 
@@ -104,7 +110,7 @@ dataset = TensorDataset(images, torch.arange(images.shape[0]))  # Pass indices f
 data_loader = DataLoader(dataset, batch_size=32, shuffle=True)
 
 # Train the model
-trainer.train(data_loader, optimizer, weight_templates, num_epochs=500)
+trainer.train(data_loader, optimizer, weight_templates, num_epochs=200)
 
 class DiffusionSampler:
     def __init__(self, model, timesteps=1000):
