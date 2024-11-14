@@ -320,9 +320,9 @@ class CustomImageDataset(Dataset):
 def train_custom_images(image_path, weight_path):
 
     # Hyperparameters
-    n_epoch = 200
+    n_epoch = 2000
     batch_size = 32
-    n_T = 100
+    n_T = 400
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     print(f"Device: {device}")
     print(f"Current GPU: {torch.cuda.current_device()}")
@@ -397,7 +397,7 @@ def train_custom_images(image_path, weight_path):
 
                 grid = make_grid(x_gen*-1 + 1, nrow=1)
                 save_image(grid, save_dir + f"image_{i}.png")
-                print('saved image at ' + save_dir + f"image_ep{ep}_w{w}.png")
+                print('saved image at ' + save_dir + f"image_{i}.png")
         # optionally save model
         if save_model and ep == int(n_epoch-1):
             torch.save(ddpm.state_dict(), save_dir + f"model_{ep}.pth")
