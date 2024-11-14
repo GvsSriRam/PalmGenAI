@@ -7,6 +7,7 @@ import math
 from time import time
 from torch.utils.data import DataLoader, TensorDataset
 import cv2
+from PIL import Image
 
 # Check if GPU is available
 if torch.cuda.is_available():
@@ -150,4 +151,5 @@ generated_image = generated_image.detach().cpu().numpy()
 generated_image = generated_image.reshape(150, 150, 1)
 
 # Save generated image
-cv2.imwrite("generated_image.png", generated_image)
+image = Image.fromarray(generated_image)  # Convert to PIL Image object
+image.save('generated_image.png')
