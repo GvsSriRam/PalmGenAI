@@ -1,0 +1,11 @@
+executable   = unet_model_versions/v5.sh
+
+output       = output_v5.out
+error        = output_v5.err
+log          = logs_v5.log
+
+Requirements = CUDADriverVersion >= 12.0
+
++request_gpus = 1
+
+queue 1

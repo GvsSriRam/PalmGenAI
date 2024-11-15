@@ -327,7 +327,7 @@ def train_custom_images(image_path, weight_path):
     print(f"Current GPU: {torch.cuda.current_device()}")
     print(f"Memory allocated: {torch.cuda.memory_allocated()}")
     print(f"Memory cached: {torch.cuda.memory_cached()}")
-    n_feat = 128
+    n_feat = 64
     lrate = 1e-2
     save_model = False
     save_dir = './models/diffusion_outputs_custom/'
