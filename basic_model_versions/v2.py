@@ -148,8 +148,8 @@ generated_image = sampler.sample(user_weight_template)
 generated_image = generated_image.detach().cpu().numpy()
 
 # Reshape to original image dimensions and save or display
-generated_image = generated_image.reshape(150, 150, 1)
+generated_image = generated_image.reshape(150, 150)
 
 # Save generated image
-image = Image.fromarray(generated_image)  # Convert to PIL Image object
+image = Image.fromarray(generated_image, mode='L')  # Convert to PIL Image object
 image.save(f'generated_image_{weight_template_size}.png')

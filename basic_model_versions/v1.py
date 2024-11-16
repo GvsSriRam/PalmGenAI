@@ -110,7 +110,7 @@ dataset = TensorDataset(images, torch.arange(images.shape[0]))  # Pass indices f
 data_loader = DataLoader(dataset, batch_size=32, shuffle=True)
 
 # Train the model
-trainer.train(data_loader, optimizer, weight_templates, num_epochs=200)
+trainer.train(data_loader, optimizer, weight_templates, num_epochs=1)
 
 class DiffusionSampler:
     def __init__(self, model, timesteps=1000):
@@ -145,11 +145,11 @@ user_weight_template = torch.tensor(user_weight_template).float().unsqueeze(0)
 
 # Generate deepfake
 generated_image = sampler.sample(user_weight_template)
-generated_image = generated_image.detach().cpu().numpy()
+generated_image = generated_image.clone().detach().cpu().numpy()
 
 # Reshape to original image dimensions and save or display
-generated_image = generated_image.reshape(150, 150, 1)
+generated_image = generated_image.reshape(150, 150)
 
 # Save generated image
-image = Image.fromarray(generated_image)  # Convert to PIL Image object
+image = Image.fromarray(generated_image, 'L')  # Convert to PIL Image object
 image.save(f'generated_image_{weight_template_size}.png')
