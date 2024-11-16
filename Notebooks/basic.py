@@ -64,6 +64,7 @@ class DiffusionTrainer:
                 optimizer.step()
 
             print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
+            scheduler.step(loss)  # Update learning rate based on loss
 
 # Input image size and weight template size
 input_size = 150 * 150 * 1  # Example for 64x64 RGB images
@@ -72,6 +73,7 @@ weight_template_size = 150  # Assuming your weight template is 256-dimensional
 # Initialize model
 model = ConditionalDiffusionModel(input_size, weight_template_size).to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.001)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
 trainer = DiffusionTrainer(model)
 
 # Load images and weight templates
@@ -120,7 +122,7 @@ sampler = DiffusionSampler(model).to(device)
 
 # Load weight templates for the user
 user_weight_template = weight_templates[0]  # Shape: (256,)
-user_weight_template = torch.tensor(user_weight_template).float().unsqueeze(0)
+user_weight_template = torch.tensor(user_weight_template.clone().detach()).float().unsqueeze(0)
 
 # Generate deepfake
 generated_image = sampler.sample(user_weight_template)
