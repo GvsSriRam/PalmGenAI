@@ -331,6 +331,7 @@ def train_custom_images(image_path, weight_path):
     lrate = 1e-2
     save_model = False
     save_dir = './models/diffusion_outputs_custom/'
+    weight_template_dim=150
 
     # Create save directory
     import os
@@ -346,7 +347,7 @@ def train_custom_images(image_path, weight_path):
     dataset = CustomImageDataset(image_path, weight_path, transform=transform)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0) # Adjust num_workers as needed
 
-    ddpm = DDPM(nn_model=ContextUnet(in_channels=1, n_feat=n_feat, weight_template_dim=150), betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1) #Added weight_template_dim, update that if it is changed
+    ddpm = DDPM(nn_model=ContextUnet(in_channels=1, n_feat=n_feat, weight_template_dim=weight_template_dim), betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1) #Added weight_template_dim, update that if it is changed
     ddpm.to(device)
     optim = torch.optim.Adam(ddpm.parameters(), lr=lrate)
 
