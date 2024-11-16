@@ -115,7 +115,7 @@ class DiffusionTrainer:
             else:
                 epochs_without_improvement += 1
                 if epochs_without_improvement >= self.patience:
-                    print("Early stopping triggered.")   
+                    print("Early stopping triggered.")
 
                     break
 
