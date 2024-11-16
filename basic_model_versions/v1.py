@@ -110,7 +110,7 @@ dataset = TensorDataset(images, torch.arange(images.shape[0]))  # Pass indices f
 data_loader = DataLoader(dataset, batch_size=32, shuffle=True)
 
 # Train the model
-trainer.train(data_loader, optimizer, weight_templates, num_epochs=1)
+trainer.train(data_loader, optimizer, weight_templates, num_epochs=200)
 
 class DiffusionSampler:
     def __init__(self, model, timesteps=1000):
