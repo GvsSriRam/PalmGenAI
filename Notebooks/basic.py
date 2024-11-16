@@ -42,13 +42,7 @@ class DiffusionTrainer:
         noise = self.sample_noise(x_start.shape).to(x_start.device)
         
         # Correct broadcasting for alpha_bar_t
-
-        print(type(self.alpha_bar))
-        print(type(t))
-        print(self.alpha_bar)
-        print(t)
-        print(self.alpha_bar.numpy()[t])
-        alpha_bar_t = torch.tensor(self.alpha_bar[t], dtype=torch.float32, device=x_start.device).view(-1, 1)
+        alpha_bar_t = torch.tensor(self.alpha_bar[t.cpu().numpy()], dtype=torch.float32, device=x_start.device).view(-1, 1)
         
         return torch.sqrt(alpha_bar_t) * x_start + torch.sqrt(1 - alpha_bar_t) * noise
 
