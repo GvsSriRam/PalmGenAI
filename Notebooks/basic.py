@@ -135,8 +135,8 @@ import numpy as np
 from torch.utils.data import DataLoader, TensorDataset
 
 # Load images and weight templates
-images = np.load("/Users/gvssriram/Desktop/projects-internship/PalmGenAI/Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy")  # Shape: (N, 64, 64, 3)
-weight_templates = np.load("/Users/gvssriram/Desktop/projects-internship/PalmGenAI/Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca.npy")  # Shape: (N, 256)
+images = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy")  # Shape: (N, 64, 64, 3)
+weight_templates = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca.npy")  # Shape: (N, 256)
 
 # Preprocessing
 images = torch.tensor(images).float().view(-1, input_size)  # Flatten images
