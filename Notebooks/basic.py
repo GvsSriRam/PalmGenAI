@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import torch.nn.functional as F
-import math
 from torch.utils.data import DataLoader, TensorDataset
 import matplotlib.pyplot as plt
 
@@ -11,14 +10,16 @@ class ConditionalDiffusionModel(nn.Module):
     def __init__(self, input_size, weight_template_size):
         super(ConditionalDiffusionModel, self).__init__()
         self.fc1 = nn.Linear(input_size + weight_template_size, 1024)
+        self.bn1 = nn.BatchNorm1d(1024)
         self.fc2 = nn.Linear(1024, 512)
+        self.bn2 = nn.BatchNorm1d(512)
         self.fc3 = nn.Linear(512, input_size)
 
     def forward(self, x, condition):
         # Concatenate the image and weight template (condition)
         x = torch.cat((x, condition), dim=-1)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        x = F.relu(self.bn1(self.fc1(x)))
+        x = F.relu(self.bn2(self.fc2(x)))
         x = self.fc3(x)
         return x
 
