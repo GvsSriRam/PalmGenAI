@@ -118,7 +118,7 @@ class DiffusionSampler:
         return x.view(img_shape)
 
 # Initialize sampler
-sampler = DiffusionSampler(model).to(device)
+sampler = DiffusionSampler(model)
 
 # Load weight templates for the user
 user_weight_template = weight_templates[0]  # Shape: (256,)
