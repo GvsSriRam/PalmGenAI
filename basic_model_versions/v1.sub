@@ -1,0 +1,11 @@
+executable   = basic_model_versions/v1.sh
+
+output       = output_basic_v1.out
+error        = output_basic_v1.err
+log          = logs_basic_v1.log
+
+Requirements = CUDADriverVersion >= 12.0
+
++request_gpus = 1
+
+queue 1
