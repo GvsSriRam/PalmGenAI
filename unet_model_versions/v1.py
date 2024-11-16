@@ -325,7 +325,7 @@ def train_custom_images(image_path, weight_path):
     print(f"Current GPU: {torch.cuda.current_device()}")
     print(f"Memory allocated: {torch.cuda.memory_allocated()}")
     print(f"Memory cached: {torch.cuda.memory_cached()}")
-    n_feat = 256
+    n_feat = 32
     lrate = 1e-2
     save_model = False
     save_dir = './models/diffusion_outputs_custom/v1/'
@@ -392,7 +392,9 @@ def train_custom_images(image_path, weight_path):
                 
                 x_gen, x_gen_store = ddpm.sample(1, (1, 150, 150), device, guide_w=0.0, w=w_sample) # Adjust guide_w as needed
 
-                grid = make_grid(x_gen*-1 + 1, nrow=1)
+                x_gen_mod = x_gen*-1 + 1
+                x_gen_mod = 255*x_gen_mod
+                grid = make_grid(x_gen_mod, nrow=1)
                 save_image(grid, save_dir + f"image_{i}.png")
                 # print('saved image at ' + save_dir + f"image_{i}.png")
         # optionally save model
