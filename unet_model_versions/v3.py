@@ -330,7 +330,7 @@ def train_custom_images(image_path, weight_path):
     n_feat = 32
     lrate = 1e-2
     save_model = False
-    save_dir = './models/diffusion_outputs_custom/'
+    save_dir = './models/diffusion_outputs_custom/v3/'
 
     # Create save directory
     import os
