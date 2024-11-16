@@ -277,10 +277,7 @@ class DDPM(nn.Module):
         # context_mask[n_sample:] = 1. # makes second half of batch context free
 
         x_i_store = [] # keep track of generated steps in case want to plot something 
-        print()
         for i in range(self.n_T, 0, -1):
-            if i%100==0 or i==self.n_T or i<8:
-                print(f'sampling timestep {i}',end='\r')
             t_is = torch.tensor([i / self.n_T]).to(device)
             t_is = t_is.repeat(n_sample,1,1,1)
 
@@ -328,7 +325,7 @@ class CustomImageDataset(Dataset):
 def train_custom_images(image_path, weight_path):
 
     # Hyperparameters
-    n_epoch = 20
+    n_epoch = 200
     batch_size = 32
     n_T = 400
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
