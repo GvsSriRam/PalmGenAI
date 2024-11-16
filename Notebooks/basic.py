@@ -6,6 +6,9 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 import matplotlib.pyplot as plt
 
+# Check for GPU availability
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 class ConditionalDiffusionModel(nn.Module):
     def __init__(self, input_size, weight_template_size):
         super(ConditionalDiffusionModel, self).__init__()
@@ -67,7 +70,7 @@ input_size = 150 * 150 * 1  # Example for 64x64 RGB images
 weight_template_size = 150  # Assuming your weight template is 256-dimensional
 
 # Initialize model
-model = ConditionalDiffusionModel(input_size, weight_template_size)
+model = ConditionalDiffusionModel(input_size, weight_template_size).to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 trainer = DiffusionTrainer(model)
 
@@ -78,6 +81,10 @@ weight_templates = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_train
 # Preprocessing
 images = torch.tensor(images).float().view(-1, input_size)  # Flatten images
 weight_templates = torch.tensor(weight_templates).float()
+
+# Move data to the appropriate device
+images = images.to(device)
+weight_templates = weight_templates.to(device)
 
 # Create dataset and dataloader
 dataset = TensorDataset(images, torch.arange(images.shape[0]))  # Pass indices for weight templates
@@ -109,7 +116,7 @@ class DiffusionSampler:
         return x.view(img_shape)
 
 # Initialize sampler
-sampler = DiffusionSampler(model)
+sampler = DiffusionSampler(model).to(device)
 
 # Load weight templates for the user
 user_weight_template = weight_templates[0]  # Shape: (256,)
