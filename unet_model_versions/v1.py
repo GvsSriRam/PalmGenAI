@@ -270,8 +270,6 @@ class DDPM(nn.Module):
         x_i_store = [] # keep track of generated steps in case want to plot something 
         print()
         for i in range(self.n_T, 0, -1):
-            if i%100==0 or i==self.n_T or i<8:
-                print(f'sampling timestep {i}',end='\r')
             t_is = torch.tensor([i / self.n_T]).to(device)
             t_is = t_is.repeat(n_sample,1,1,1)
 
@@ -327,7 +325,7 @@ def train_custom_images(image_path, weight_path):
     print(f"Current GPU: {torch.cuda.current_device()}")
     print(f"Memory allocated: {torch.cuda.memory_allocated()}")
     print(f"Memory cached: {torch.cuda.memory_cached()}")
-    n_feat = 8
+    n_feat = 256
     lrate = 1e-2
     save_model = False
     save_dir = './models/diffusion_outputs_custom/v1/'

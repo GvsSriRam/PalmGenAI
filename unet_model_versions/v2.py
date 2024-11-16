@@ -270,8 +270,6 @@ class DDPM(nn.Module):
         x_i_store = [] # keep track of generated steps in case want to plot something 
         print()
         for i in range(self.n_T, 0, -1):
-            if i%100==0 or i==self.n_T or i<8:
-                print(f'sampling timestep {i}',end='\r')
             t_is = torch.tensor([i / self.n_T]).to(device)
             t_is = t_is.repeat(n_sample,1,1,1)
 
@@ -327,7 +325,7 @@ def train_custom_images(image_path, weight_path):
     print(f"Current GPU: {torch.cuda.current_device()}")
     print(f"Memory allocated: {torch.cuda.memory_allocated()}")
     print(f"Memory cached: {torch.cuda.memory_cached()}")
-    n_feat = 16
+    n_feat = 256
     lrate = 1e-2
     save_model = False
     save_dir = './models/diffusion_outputs_custom/v2/'
@@ -346,7 +344,7 @@ def train_custom_images(image_path, weight_path):
     dataset = CustomImageDataset(image_path, weight_path, transform=transform)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0) # Adjust num_workers as needed
 
-    ddpm = DDPM(nn_model=ContextUnet(in_channels=1, n_feat=n_feat, weight_template_dim=150), betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1) #Added weight_template_dim, update that if it is changed
+    ddpm = DDPM(nn_model=ContextUnet(in_channels=1, n_feat=n_feat, weight_template_dim=16), betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1) #Added weight_template_dim, update that if it is changed
     ddpm.to(device)
     optim = torch.optim.Adam(ddpm.parameters(), lr=lrate)
 
@@ -407,5 +405,5 @@ def train_custom_images(image_path, weight_path):
 
 if __name__ == "__main__":
     image_path = "Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy"
-    weight_path = "Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca.npy"
+    weight_path = "Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca_16.npy"
     train_custom_images(image_path, weight_path)
