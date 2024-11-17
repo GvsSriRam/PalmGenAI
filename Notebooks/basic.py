@@ -30,6 +30,7 @@ class ConditionalDiffusionModel(nn.Module):
 
     def forward(self, x, condition):
         # Concatenate the image and weight template (condition)
+        print(x.device, condition.device)
         x = torch.cat((x, condition), dim=-1)
         x = F.relu(self.bn1(self.fc1(x)))
         x = F.relu(self.bn2(self.fc2(x)))
