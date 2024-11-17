@@ -50,6 +50,9 @@ class DiffusionTrainer:
         return torch.randn(shape)
 
     def q_sample(self, x_start, t):
+        print(x_start.device)
+        print(t.device)
+        print(self.alpha_bar.device)
         noise = self.sample_noise(x_start.shape).to(x_start.device)
         
         # Correct broadcasting for alpha_bar_t
