@@ -34,6 +34,7 @@ class DiffusionTrainer:
         self.beta = np.linspace(1e-4, 0.02, timesteps)  # Linear schedule
         self.alpha = 1 - self.beta
         self.alpha_bar = np.cumprod(self.alpha)
+        self.alpha_bar = torch.tensor(self.alpha_bar, dtype=torch.float32).to(device)
 
     def sample_noise(self, shape):
         return torch.randn(shape)
@@ -42,7 +43,7 @@ class DiffusionTrainer:
         noise = self.sample_noise(x_start.shape).to(x_start.device)
         
         # Correct broadcasting for alpha_bar_t
-        alpha_bar_t = torch.tensor(self.alpha_bar[t.cpu().numpy()], dtype=torch.float32, device=x_start.device).view(-1, 1)
+        alpha_bar_t = self.alpha_bar[t].view(-1, 1)
         
         return torch.sqrt(alpha_bar_t) * x_start + torch.sqrt(1 - alpha_bar_t) * noise
 
@@ -113,17 +114,18 @@ class DiffusionSampler:
 
     def sample(self, condition, img_shape=(150, 150, 1)):
         x = torch.randn((1, np.prod(img_shape))).to(condition.device)
-        for t in reversed(range(self.timesteps)):
-            x = self.p_sample(x, t, condition)
+        self.model.eval()
+        with torch.no_grad():
+            for t in reversed(range(self.timesteps)):
+                x = self.p_sample(x, t, condition)
         return x.view(img_shape)
 
 # Initialize sampler
 sampler = DiffusionSampler(model)
 
 # Load weight templates for the user
-user_weight_template = weight_templates[0]  # Shape: (256,)
-user_weight_template = torch.tensor(user_weight_template.clone().detach()).float().unsqueeze(0)
-
+user_weight_template = weight_templates[0]
+user_weight_template = user_weight_template.clone().detach().float().unsqueeze(0)
 # Generate deepfake
 generated_image = sampler.sample(user_weight_template)
 generated_image = generated_image.detach().cpu().numpy()
