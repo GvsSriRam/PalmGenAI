@@ -392,7 +392,7 @@ def train_custom_images(image_path, weight_path):
                 
                 x_gen, x_gen_store = ddpm.sample(1, (1, 150, 150), device, guide_w=0.0, w=w_sample) # Adjust guide_w as needed
                 np.save(save_dir + f"x_gen_{i}.npy", x_gen_store)
-                np.save(save_dir + f"x {i}.npy", x_gen)
+                np.save(save_dir + f"x {i}.npy", x_gen.cpu().detach().numpy())
                 print(x_gen.shape)
                 print(x_gen_store.shape)
                 print(x_gen)
