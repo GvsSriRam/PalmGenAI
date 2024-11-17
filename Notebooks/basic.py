@@ -6,9 +6,18 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 import matplotlib.pyplot as plt
 import copy
+from torchvision import transforms
 
 # Check for GPU availability
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Define your transformations
+transform = transforms.Compose([
+    transforms.ToPILImage(),
+    transforms.RandomHorizontalFlip(),
+    transforms.RandomRotation(10),  # Rotate by up to 10 degrees
+    transforms.ToTensor(),
+])
 
 class ConditionalDiffusionModel(nn.Module):
     def __init__(self, input_size, weight_template_size):
@@ -58,6 +67,7 @@ class DiffusionTrainer:
         
         for epoch in range(num_epochs):
             for i, (x_start, idx) in enumerate(data_loader):
+                x_start = transform(x_start)  # Apply transformations
                 t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                 x_noisy = self.q_sample(x_start, t)
                 condition = weight_templates[idx].to(x_start.device)
