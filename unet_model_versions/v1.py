@@ -317,7 +317,7 @@ class CustomImageDataset(Dataset):
 def train_custom_images(image_path, weight_path):
 
     # Hyperparameters
-    n_epoch = 200
+    n_epoch = 10
     batch_size = 32
     n_T = 400
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -325,7 +325,7 @@ def train_custom_images(image_path, weight_path):
     print(f"Current GPU: {torch.cuda.current_device()}")
     print(f"Memory allocated: {torch.cuda.memory_allocated()}")
     print(f"Memory cached: {torch.cuda.memory_cached()}")
-    n_feat = 32
+    n_feat = 512
     lrate = 1e-2
     save_model = False
     save_dir = './models/diffusion_outputs_custom/v1/'
@@ -391,7 +391,13 @@ def train_custom_images(image_path, weight_path):
                 w_sample = w[i].unsqueeze(0)
                 
                 x_gen, x_gen_store = ddpm.sample(1, (1, 150, 150), device, guide_w=0.0, w=w_sample) # Adjust guide_w as needed
-
+                np.save(save_dir + f"x_gen_{i}.npy", x_gen_store)
+                np.save(save_dir + f"x {i}.npy", x_gen)
+                print(x_gen.shape)
+                print(x_gen_store.shape)
+                print(x_gen)
+                print(max(x_gen))
+                print(min(x_gen))
                 x_gen_mod = x_gen*-1 + 1
                 x_gen_mod = 255*x_gen_mod
                 grid = make_grid(x_gen_mod, nrow=1)
