@@ -72,7 +72,7 @@ class DiffusionTrainer:
                 x_start = x_start.to(device)
                 x_start = transform(x_start)  # Apply transformations
                 t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
-                x_noisy = self.q_sample(x_start, t)
+                x_noisy = self.q_sample(x_start, t).to(x_start.device)
                 condition = weight_templates[idx].to(x_start.device)
 
                 loss = self.loss_fn(x_noisy, t, x_start, condition)
