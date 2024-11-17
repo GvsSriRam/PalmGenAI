@@ -50,12 +50,11 @@ class DiffusionTrainer:
         return torch.randn(shape)
 
     def q_sample(self, x_start, t):
+        x_start = x_start.to(device)
         noise = self.sample_noise(x_start.shape).to(x_start.device)
         
         # Correct broadcasting for alpha_bar_t
         alpha_bar_t = self.alpha_bar[t].view(-1, 1)
-        x_start.to(alpha_bar_t.device)
-        noise.to(alpha_bar_t.device)
         
         return torch.sqrt(alpha_bar_t) * x_start + torch.sqrt(1 - alpha_bar_t) * noise
 
@@ -70,7 +69,6 @@ class DiffusionTrainer:
         for epoch in range(num_epochs):
             for i, (x_start, idx) in enumerate(data_loader):
                 x_start = x_start.to(device)
-                print(x_start.device)
                 x_start = transform(x_start)  # Apply transformations
                 t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                 x_noisy = self.q_sample(x_start, t)
