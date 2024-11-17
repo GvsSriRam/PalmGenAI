@@ -54,8 +54,8 @@ class DiffusionTrainer:
         
         # Correct broadcasting for alpha_bar_t
         alpha_bar_t = self.alpha_bar[t].view(-1, 1)
-        x_start.to(device)
-        noise.to(device)
+        x_start.to(alpha_bar_t.device)
+        noise.to(alpha_bar_t.device)
         
         print(alpha_bar_t.device)
         print(x_start.device)
