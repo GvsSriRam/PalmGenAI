@@ -304,7 +304,7 @@ class CustomImageDataset(Dataset):
         self.transform = transform
 
     def __len__(self):
-        return int(len(self.images) * 0.1)
+        return len(self.images)
 
     def __getitem__(self, idx):
         image = self.images[idx]
