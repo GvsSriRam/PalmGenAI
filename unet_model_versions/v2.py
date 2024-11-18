@@ -392,8 +392,12 @@ def train_custom_images(image_path, weight_path):
                 
                 x_gen, x_gen_store = ddpm.sample(1, (1, 150, 150), device, guide_w=0.0, w=w_sample) # Adjust guide_w as needed
 
+                x_gen_mod = x_gen*-1 + 1
+                x_gen_mod = 255*x_gen_mod
                 grid = make_grid(x_gen*-1 + 1, nrow=1)
                 save_image(grid, save_dir + f"image_{i}.png")
+                grid = make_grid(x_gen_mod, nrow=1)
+                save_image(grid, save_dir + f"image_{i}_mod.png")
                 # print('saved image at ' + save_dir + f"image_{i}.png")
         # optionally save model
         if save_model and ep == int(n_epoch-1):

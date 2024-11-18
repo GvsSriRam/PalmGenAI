@@ -391,17 +391,12 @@ def train_custom_images(image_path, weight_path):
                 w_sample = w[i].unsqueeze(0)
                 
                 x_gen, x_gen_store = ddpm.sample(1, (1, 150, 150), device, guide_w=0.0, w=w_sample) # Adjust guide_w as needed
-                np.save(save_dir + f"x_gen_{i}.npy", x_gen_store)
-                np.save(save_dir + f"x {i}.npy", x_gen.cpu().detach().numpy())
-                print(x_gen.shape)
-                print(x_gen_store.shape)
-                print(x_gen)
-                print(max(x_gen))
-                print(min(x_gen))
                 x_gen_mod = x_gen*-1 + 1
                 x_gen_mod = 255*x_gen_mod
-                grid = make_grid(x_gen_mod, nrow=1)
+                grid = make_grid(x_gen*-1 + 1, nrow=1)
                 save_image(grid, save_dir + f"image_{i}.png")
+                grid = make_grid(x_gen_mod, nrow=1)
+                save_image(grid, save_dir + f"image_{i}_mod.png")
                 # print('saved image at ' + save_dir + f"image_{i}.png")
         # optionally save model
         if save_model and ep == int(n_epoch-1):
