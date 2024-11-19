@@ -268,7 +268,6 @@ class DDPM(nn.Module):
         # context_mask[n_sample:] = 1. # makes second half of batch context free
 
         x_i_store = [] # keep track of generated steps in case want to plot something 
-        print()
         for i in range(self.n_T, 0, -1):
             t_is = torch.tensor([i / self.n_T]).to(device)
             t_is = t_is.repeat(n_sample,1,1,1)
