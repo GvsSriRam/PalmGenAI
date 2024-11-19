@@ -317,7 +317,7 @@ class CustomImageDataset(Dataset):
 def train_custom_images(image_path, weight_path):
 
     # Hyperparameters
-    n_epoch = 10
+    n_epoch = 100
     batch_size = 32
     n_T = 400
     device = "cuda:0" if torch.cuda.is_available() else "cpu"

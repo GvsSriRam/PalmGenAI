@@ -317,7 +317,7 @@ class CustomImageDataset(Dataset):
 def train_custom_images(image_path, weight_path):
 
     # Hyperparameters
-    n_epoch = 200
+    n_epoch = 100
     batch_size = 32
     n_T = 400
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -344,7 +344,7 @@ def train_custom_images(image_path, weight_path):
     dataset = CustomImageDataset(image_path, weight_path, transform=transform)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0) # Adjust num_workers as needed
 
-    ddpm = DDPM(nn_model=ContextUnet(in_channels=1, n_feat=n_feat, weight_template_dim=16), betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1) #Added weight_template_dim, update that if it is changed
+    ddpm = DDPM(nn_model=ContextUnet(in_channels=1, n_feat=n_feat, weight_template_dim=150), betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1) #Added weight_template_dim, update that if it is changed
     ddpm.to(device)
     optim = torch.optim.Adam(ddpm.parameters(), lr=lrate)
 
@@ -409,5 +409,5 @@ def train_custom_images(image_path, weight_path):
 
 if __name__ == "__main__":
     image_path = "Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy"
-    weight_path = "Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca_16.npy"
+    weight_path = "Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca.npy"
     train_custom_images(image_path, weight_path)
