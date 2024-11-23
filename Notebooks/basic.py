@@ -41,12 +41,19 @@ class ConditionalDiffusionModel(nn.Module):
 
     def forward(self, x, condition):
         # Concatenate the image and weight template (condition)
+        print(x.shape)
         x = x.view(-1, 1, 150, 150) # Reshape for convolution
+        print(x.shape)
         x = F.relu(self.bn1(self.conv1(x)))
+        print(x.shape)
         x = F.max_pool2d(x, 2) # Downsampling
+        print(x.shape)
         x = F.relu(self.bn2(self.conv2(x)))
-        x = F.max_pool2d(x, 2) # Downsampling
+        print(x.shape)
+        x = F.max_pool2d(x, 3) # Downsampling
+        print(x.shape)
         x = x.flatten(1)
+        print(x.shape)
         # x = x.view(-1, 64 * 75 * 75) # Flatten for concatenation
         x = torch.cat((x, condition), dim=-1)
         x = F.relu(self.bn3(self.fc1(x)))
@@ -55,7 +62,7 @@ class ConditionalDiffusionModel(nn.Module):
         x = x.flatten(1)
         # x = x.view(-1, 64, 75, 75) # Reshape for deconvolution
         x = F.relu(self.bn5(self.deconv1(x)))
-        x = F.interpolate(x, scale_factor=2) # Upsampling
+        x = F.interpolate(x, scale_factor=3) # Upsampling
         x = self.deconv2(x)
         x = F.interpolate(x, scale_factor=2) # Upsampling
         x = x.view(-1, 150 * 150) # Flatten the output
