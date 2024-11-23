@@ -170,7 +170,8 @@ class DiffusionTrainer:
 
             print(f"Epoch [{epoch + 1}/{num_epochs}], "
                   f"Train Perceptual Loss: {train_loss/len(data_loader):.4f}, Train MSE: {train_mse/len(data_loader):.4f}, "
-                  f"Val Perceptual Loss: {val_perceptual_loss:.4f}, Val MSE: {val_mse:.4f}")
+                  f"Val Perceptual Loss: {val_perceptual_loss:.4f}, Val MSE: {val_mse:.4f}, "
+                  f"Val Weighted Loss: {val_weighted_loss:.4f}")
             
             if val_loss < best_loss:
                 best_loss = val_loss
