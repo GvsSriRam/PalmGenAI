@@ -12,7 +12,7 @@ from torchvision.models import vgg16
 import PIL
 
 # Hyperparameters
-batch_size = 1
+batch_size = 16
 input_size = 150 * 150 * 1  # Example for 64x64 RGB images
 weight_template_size = 64  # Assuming your weight template is 256-dimensional
 lr = 1e-6
@@ -240,10 +240,11 @@ class DiffusionTrainer:
                     t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                     x_noisy = self.q_sample(x_start, t)
                     condition = weight_templates[idx].to(x_start.device)
-                    perceptual_loss, mse, weighted_loss = self.loss_fn(x_noisy, t, x_start, condition)
-                    val_perceptual_loss += perceptual_loss.item()
+                    # perceptual_loss, mse, weighted_loss = self.loss_fn(x_noisy, t, x_start, condition)
+                    mse = self.loss_fn(x_noisy, t, x_start, condition)
+                    # val_perceptual_loss += perceptual_loss.item()
                     val_mse += mse.item()
-                    val_weighted_loss += weighted_loss.item()  # Accumulate weighted loss
+                    # val_weighted_loss += weighted_loss.item()  # Accumulate weighted loss
             # val_perceptual_loss /= len(val_data_loader)
             val_mse /= len(val_data_loader)
             # val_weighted_loss /= len(val_data_loader)
