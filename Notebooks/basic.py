@@ -23,8 +23,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Define your transformations
 transform = transforms.Compose([
     transforms.ToPILImage('L'),
-    # transforms.RandomHorizontalFlip(),
-    # transforms.RandomRotation(10),  # Rotate by up to 10 degrees
     transforms.ToTensor(),
 ])
 
@@ -74,7 +72,7 @@ class ConditionalDiffusionModel(nn.Module):
         x = self.deconv2(x)
         x = F.interpolate(x, scale_factor=2) # Upsampling
         x = x.view(1, -1, 150 * 150) # Flatten the output
-        # x = torch.sigmoid(x) # Sigmoid activation for pixel values
+        x = torch.sigmoid(x) # Sigmoid activation for pixel values
         return x
 
 
@@ -212,6 +210,7 @@ test_weight_templates = np.load(f"Datasets/IITD Palmprint V1/Preprocessed/Left/X
 
 # Preprocessing
 images = torch.tensor(images).float().view(-1, input_size)  # Flatten images
+print(images.max(), images.min())
 weight_templates = torch.tensor(weight_templates).float()
 test_images = torch.tensor(test_images).float().view(-1, input_size)
 test_weight_templates = torch.tensor(test_weight_templates).float()
