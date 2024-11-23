@@ -23,13 +23,15 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Define your transformations
 transform = transforms.Compose([
     transforms.ToPILImage('L'),
-    transforms.ToTensor(),
+    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+    transforms.GaussianBlur(kernel_size=3),
+    transforms.ToTensor()
 ])
 
-val_transform = transforms.Compose([
-    transforms.ToPILImage('L'),
-    transforms.ToTensor(),  # Only ToTensor for validation
-])
+# val_transform = transforms.Compose([
+#     transforms.ToPILImage('L'),
+#     transforms.ToTensor(),  # Only ToTensor for validation
+# ])
 
 class ConditionalDiffusionModel(nn.Module):
     def __init__(self, input_size, weight_template_size):
@@ -158,7 +160,7 @@ class DiffusionTrainer:
             with torch.no_grad():
                 for i, (x_start, idx) in enumerate(val_data_loader):  # Use your validation data loader
                     x_start = x_start.to(device)
-                    x_start = val_transform(x_start)
+                    x_start = transform(x_start)
                     t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                     x_noisy = self.q_sample(x_start, t)
                     condition = weight_templates[idx].to(x_start.device)
@@ -197,7 +199,7 @@ optimizer_adam = optim.Adam(model.parameters(), lr=lr)
 optimizer_rmsprop = optim.RMSprop(model.parameters(), lr=lr)
 optimizer_adamw = optim.AdamW(model.parameters(), lr=lr)
 
-optimizer = optimizer_adam
+optimizer = optimizer_adamw
 
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
 trainer = DiffusionTrainer(model)
