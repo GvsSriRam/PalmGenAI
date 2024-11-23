@@ -116,16 +116,21 @@ class DiffusionTrainer:
         # print(x_real.view(-1, 1, 150, 150).shape)
         # print(self.vgg)
         x_generated = torch.cat([x_generated.view(-1, 1, 150, 150)] * 3, dim=1)
+        print(x_generated.device)
+        print(self.vgg.device)
         features_generated = self.vgg(x_generated)
         x_real = torch.cat([x_real.view(-1, 1, 150, 150)] * 3, dim=1)
+        print(features_generated.device)
+        print(x_real.device)
         features_real = self.vgg(x_real)
+        print(features_real.shape)
         # Calculate L1 loss between features
         return F.l1_loss(features_generated, features_real)
 
     def loss_fn(self, x_noisy, t, x_start, condition):
         x_noisy = x_noisy.to(device)
         condition = condition.to(device)
-        predicted_x_start = self.model(x_noisy, condition)
+        predicted_x_start = self.model(x_noisy, condition).to(device)
         perceptual_loss = self.perceptual_loss(predicted_x_start, x_start)
         mse_loss = F.mse_loss(predicted_x_start, x_start)  # Calculate MSE for monitoring
         return perceptual_loss, mse_loss
