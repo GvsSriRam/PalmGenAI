@@ -12,7 +12,7 @@ from torchvision.models import vgg16
 import PIL
 
 # Hyperparameters
-batch_size = 16
+batch_size = 1
 input_size = 150 * 150 * 1  # Example for 64x64 RGB images
 weight_template_size = 64  # Assuming your weight template is 256-dimensional
 lr = 1e-6
@@ -194,11 +194,8 @@ class DiffusionTrainer:
         predicted_x_start = self.model(x_noisy, condition).to(device)
         if x_start.shape != predicted_x_start.shape:
             x_start = x_start.view(predicted_x_start.shape)
-        # perceptual_loss = self.perceptual_loss(predicted_x_start, x_start)
+
         mse_loss = F.mse_loss(predicted_x_start, x_start)  # Calculate MSE for monitoring
-        # Weighted loss with adjusted weights
-        # weighted_loss = perceptual_loss * 0.9 + mse_loss * 0.1  
-        # return perceptual_loss, mse_loss, weighted_loss
         return mse_loss
 
     def train(self, data_loader, optimizer, weight_templates, num_epochs=1000, patience=15):
@@ -206,8 +203,6 @@ class DiffusionTrainer:
         epochs_without_improvement = 0
         
         for epoch in range(num_epochs):
-            train_loss = 0.0
-            train_perceptual_loss = 0.0
             train_mse = 0.0
             for i, (x_start, idx) in enumerate(data_loader):
                 x_start = x_start.to(device)
@@ -216,23 +211,17 @@ class DiffusionTrainer:
                 x_noisy = self.q_sample(x_start, t).to(x_start.device)
                 condition = weight_templates[idx].to(x_start.device)
 
-                # perceptual_loss, mse, weighted_loss = self.loss_fn(x_noisy, t, x_start, condition)
                 mse = self.loss_fn(x_noisy, t, x_start, condition)
-                # train_perceptual_loss += perceptual_loss.item()
-                # train_loss += weighted_loss.item()  # Accumulate weighted loss
                 train_mse += mse.item()
 
                 optimizer.zero_grad()
-                # weighted_loss.backward()  # Backpropagate weighted loss
                 mse.backward()  # Backpropagate MSE
                 optimizer.step()
 
             # Validation loop
             self.model.eval()  # Set model to evaluation mode
             val_loss = 0.0
-            # val_perceptual_loss = 0.0
             val_mse = 0.0
-            # val_weighted_loss = 0.0
             with torch.no_grad():
                 for i, (x_start, idx) in enumerate(val_data_loader):  # Use your validation data loader
                     x_start = x_start.to(device)
@@ -240,14 +229,9 @@ class DiffusionTrainer:
                     t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                     x_noisy = self.q_sample(x_start, t)
                     condition = weight_templates[idx].to(x_start.device)
-                    # perceptual_loss, mse, weighted_loss = self.loss_fn(x_noisy, t, x_start, condition)
                     mse = self.loss_fn(x_noisy, t, x_start, condition)
-                    # val_perceptual_loss += perceptual_loss.item()
                     val_mse += mse.item()
-                    # val_weighted_loss += weighted_loss.item()  # Accumulate weighted loss
-            # val_perceptual_loss /= len(val_data_loader)
             val_mse /= len(val_data_loader)
-            # val_weighted_loss /= len(val_data_loader)
             val_loss = val_mse  # Use weighted loss for validation
 
             print(f"Epoch [{epoch + 1}/{num_epochs}], "
