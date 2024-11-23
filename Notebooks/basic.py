@@ -138,6 +138,7 @@ class DiffusionTrainer:
             # Validation loop (add this)
             self.model.eval()  # Set model to evaluation mode
             val_loss = 0.0
+            val_perceptual_loss = 0.0
             val_mse = 0.0
             with torch.no_grad():
                 for i, (x_start, idx) in enumerate(val_data_loader):  # Use your validation data loader
