@@ -43,42 +43,24 @@ class ConditionalDiffusionModel(nn.Module):
 
     def forward(self, x, condition):
         # Concatenate the image and weight template (condition)
-        # print(x.shape)
         x = x.view(-1, 1, 150, 150) # Reshape for convolution
-        # print(x.shape)
         x = F.relu(self.bn1(self.conv1(x)))
-        # print(x.shape)
         x = F.max_pool2d(x, 2) # Downsampling
-        # print(x.shape)
         x = F.relu(self.bn2(self.conv2(x)))
-        # print(x.shape)
         x = F.max_pool2d(x, 3) # Downsampling
-        # print(x.shape)
         x = x.flatten(1)
-        # print(x.shape)
         # x = x.view(-1, 64 * 75 * 75) # Flatten for concatenation
         x = torch.cat((x, condition), dim=-1)
-        # print(x.shape)
         x = F.relu(self.bn3(self.fc1(x)))
-        # print(x.shape)
         x = F.relu(self.bn4(self.fc2(x)))
-        # print(x.shape)
         x = self.fc3(x)
-        # print(x.shape)
         x = x.flatten(1)
-        # print(x.shape)
         x = x.view(-1, 64, 25, 25) # Reshape for deconvolution
-        # print(self.deconv1(x).shape)
         x = F.relu(self.bn5(self.deconv1(x)))
-        # print(x.shape)
         x = F.interpolate(x, scale_factor=3) # Upsampling
-        # print(x.shape)
         x = self.deconv2(x)
-        # print(x.shape)
         x = F.interpolate(x, scale_factor=2) # Upsampling
-        # print(x.shape)
         x = x.view(1, -1, 150 * 150) # Flatten the output
-        # print(x.shape)
         return x
 
 
@@ -110,11 +92,6 @@ class DiffusionTrainer:
     
     def perceptual_loss(self, x_generated, x_real):
         # Extract features from VGG16
-        # print(x_generated.shape)
-        # print(x_real.shape)
-        # print(x_generated.view(-1, 1, 150, 150).shape)
-        # print(x_real.view(-1, 1, 150, 150).shape)
-        # print(self.vgg)
         x_generated = torch.cat([x_generated.view(-1, 1, 150, 150)] * 3, dim=1)
         self.vgg.to(device)
         features_generated = self.vgg(x_generated)
@@ -129,8 +106,8 @@ class DiffusionTrainer:
         condition = condition.to(device)
         x_start = x_start.to(device)
         predicted_x_start = self.model(x_noisy, condition).to(device)
-        print(predicted_x_start.shape)
-        print(x_start.shape)
+        if x_start.shape != predicted_x_start.shape:
+            x_start = x_start.view(predicted_x_start.shape)
         perceptual_loss = self.perceptual_loss(predicted_x_start, x_start)
         mse_loss = F.mse_loss(predicted_x_start, x_start)  # Calculate MSE for monitoring
         return perceptual_loss, mse_loss
@@ -200,7 +177,7 @@ optimizer_adam = optim.Adam(model.parameters(), lr=0.001)
 optimizer_rmsprop = optim.RMSprop(model.parameters(), lr=0.001)
 optimizer_adamw = optim.AdamW(model.parameters(), lr=0.001)
 
-optimizer = optimizer_adam
+optimizer = optimizer_rmsprop
 
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
 trainer = DiffusionTrainer(model)
