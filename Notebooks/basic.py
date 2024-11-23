@@ -72,7 +72,7 @@ class ConditionalDiffusionModel(nn.Module):
         x = self.deconv2(x)
         x = F.interpolate(x, scale_factor=2) # Upsampling
         x = x.view(1, -1, 150 * 150) # Flatten the output
-        x = torch.sigmoid(x) # Sigmoid activation for pixel values
+        # x = torch.sigmoid(x) # Sigmoid activation for pixel values
         return x
 
 
