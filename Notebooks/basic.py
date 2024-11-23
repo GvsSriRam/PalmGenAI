@@ -12,7 +12,7 @@ from torchvision.models import vgg16
 import PIL
 
 # Hyperparameters
-batch_size = 4
+batch_size = 1
 input_size = 150 * 150 * 1  # Example for 64x64 RGB images
 weight_template_size = 64  # Assuming your weight template is 256-dimensional
 lr = 1e-6
@@ -23,59 +23,131 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Define your transformations
 transform = transforms.Compose([
     transforms.ToPILImage('L'),
+    transforms.Resize((128, 128)),
     transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
     transforms.ToTensor()
 ])
 
-# val_transform = transforms.Compose([
-#     transforms.ToPILImage('L'),
-#     transforms.ToTensor(),  # Only ToTensor for validation
-# ])
 
-class ConditionalDiffusionModel(nn.Module):
-    def __init__(self, input_size, weight_template_size):
-        super(ConditionalDiffusionModel, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1) # Convolutional layer
-        self.bn1 = nn.BatchNorm2d(32)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1) # Convolutional layer
-        self.bn2 = nn.BatchNorm2d(64)
-        test_input = torch.randn(1, 1, 150, 150)
-        test_output = self.conv2(F.max_pool2d(F.relu(self.bn1(self.conv1(test_input))), 2))
-        correct_size = test_output.view(-1).shape[0]
-        # self.fc1 = nn.Linear(correct_size + weight_template_size, 1024) # Adjusted FC layer
-        self.fc1 = nn.Linear(40000 + weight_template_size, 1024) # Adjusted FC layer
-        self.bn3 = nn.BatchNorm1d(1024)
+class DoubleConv(nn.Module):
+    """(convolution => [BN] => ReLU) * 2"""
+
+    def __init__(self, in_channels, out_channels, mid_channels=None):
+        super().__init__()
+
+        if not mid_channels:
+            mid_channels = out_channels
+        self.double_conv = nn.Sequential(
+            nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(mid_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        return self.double_conv(x)
+
+
+class Down(nn.Module):
+    """Downscaling with maxpool then double conv"""
+
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.maxpool_conv = nn.Sequential(
+            nn.MaxPool2d(2),
+            DoubleConv(in_channels, out_channels)
+        )
+
+    def forward(self, x):
+        return self.maxpool_conv(x)
+
+class Up(nn.Module):
+    """Upscaling then double conv"""
+
+    def __init__(self, in_channels, out_channels, bilinear=True):
+        super().__init__()
+
+        # if bilinear, use the normal convolutions to reduce the number of channels
+        if bilinear:
+            self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+            self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
+        else:
+            self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
+            self.conv = DoubleConv(in_channels, out_channels)
+
+    def forward(self, x1, x2):
+        x1 = self.up(x1)
+        # input is CHW
+        diffY = x2.size()[2] - x1.size()[2]
+        diffX = x2.size()[3] - x1.size()[3]
+
+        x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
+                        diffY // 2, diffY - diffY // 2])
+        # if you have padding issues, see
+        # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a   
+
+        # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633aefac1cf68ae434c8d13a48b2d3dc   
+
+        x = torch.cat([x2, x1], dim=1)
+        return self.conv(x)
+
+class OutConv(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(OutConv, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+
+    def forward(self, x):
+        return self.conv(x)
+
+class ConditionalUNet(nn.Module):
+    def __init__(self, input_size, weight_template_size, n_channels=1, n_classes=1, bilinear=True):
+        super(ConditionalUNet, self).__init__()
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+        self.bilinear = bilinear
+        self.factor = 2 if bilinear else 1
+
+        self.inc = DoubleConv(n_channels, 64)
+
+        self.down1 = Down(64, 128)
+        self.down2 = Down(128, 256)
+        self.down3 = Down(256, 512 // self.factor)
+
+        self.fc_in_features = (512 // self.factor) * 16 * 16  # Calculate dynamically
+        self.fc1 = nn.Linear(self.fc_in_features + weight_template_size, 1024)
         self.fc2 = nn.Linear(1024, 512)
-        self.bn4 = nn.BatchNorm1d(512)
-        # self.fc3 = nn.Linear(512, 64 * 75 * 75) # Output reshaped for deconvolution
-        self.fc3 = nn.Linear(512, 40000) # Output reshaped for deconvolution
-        self.deconv1 = nn.ConvTranspose2d(64, 32, kernel_size=3, padding=1) # Deconvolutional layer
-        self.bn5 = nn.BatchNorm2d(32)
-        self.deconv2 = nn.ConvTranspose2d(32, 1, kernel_size=3, padding=1) # Deconvolutional layer
+        self.fc3 = nn.Linear(512, self.fc_in_features)
 
+        self.up1 = Up(512, 256 // self.factor, bilinear)
+        self.up2 = Up(256, 128 // self.factor, bilinear)
+        self.up3 = Up(128, 64, bilinear)
+        self.outc = OutConv(64, n_classes)
+    
     def forward(self, x, condition):
-        # Concatenate the image and weight template (condition)
-        x = x.view(-1, 1, 150, 150) # Reshape for convolution
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.max_pool2d(x, 2) # Downsampling
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.max_pool2d(x, 3) # Downsampling
-        x = x.flatten(1)
-        # x = x.view(-1, 64 * 75 * 75) # Flatten for concatenation
-        x = torch.cat((x, condition), dim=-1)
-        x = F.relu(self.bn3(self.fc1(x)))
-        x = F.relu(self.bn4(self.fc2(x)))
-        x = self.fc3(x)
-        x = x.flatten(1)
-        x = x.view(-1, 64, 25, 25) # Reshape for deconvolution
-        x = F.relu(self.bn5(self.deconv1(x)))
-        x = F.interpolate(x, scale_factor=3) # Upsampling
-        x = self.deconv2(x)
-        x = F.interpolate(x, scale_factor=2) # Upsampling
-        x = x.view(1, -1, 150 * 150) # Flatten the output
-        x = torch.sigmoid(x) # Sigmoid activation for pixel values
-        return x
+        x = x.view(-1, 1, 128, 128)  # Reshape for 128x128
+        x1 = self.inc(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
 
+        x4_flat = x4.flatten(1)
+        x_concat = torch.cat((x4_flat, condition), dim=-1)
+
+        x = F.relu(self.fc1(x_concat))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+
+        x = x.view(-1, 512 // self.factor, 16, 16)  # Reshape for upsampling
+
+        x = self.up1(x, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        logits = self.outc(x)
+        logits = torch.sigmoid(logits)  # Sigmoid for output
+        return logits.view(-1, 128 * 128)  # Flatten output
 
 class DiffusionTrainer:
     def __init__(self, model, timesteps=10000):
@@ -88,6 +160,8 @@ class DiffusionTrainer:
 
         # Initialize VGG model for perceptual loss
         self.vgg = vgg16(pretrained=True).features.to(device)
+        # Modify the first layer to accept 1 channel
+        self.vgg[0] = nn.Conv2d(1, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)) 
         for param in self.vgg.parameters():
             param.requires_grad = False
 
@@ -105,10 +179,9 @@ class DiffusionTrainer:
     
     def perceptual_loss(self, x_generated, x_real):
         # Extract features from VGG16
-        x_generated = torch.cat([x_generated.view(-1, 1, 150, 150)] * 3, dim=1)
-        self.vgg.to(device)
+        x_generated = torch.cat([x_generated.view(-1, 1, 128, 128)] * 3, dim=1)  # Reshape for VGG
         features_generated = self.vgg(x_generated)
-        x_real = torch.cat([x_real.view(-1, 1, 150, 150)] * 3, dim=1)
+        x_real = torch.cat([x_real.view(-1, 1, 128, 128)] * 3, dim=1)  # Reshape for VGG
         x_real = x_real.to(device)
         features_real = self.vgg(x_real)
         # Calculate L1 loss between features
@@ -121,12 +194,14 @@ class DiffusionTrainer:
         predicted_x_start = self.model(x_noisy, condition).to(device)
         if x_start.shape != predicted_x_start.shape:
             x_start = x_start.view(predicted_x_start.shape)
-        perceptual_loss = self.perceptual_loss(predicted_x_start, x_start)
+        # perceptual_loss = self.perceptual_loss(predicted_x_start, x_start)
         mse_loss = F.mse_loss(predicted_x_start, x_start)  # Calculate MSE for monitoring
-        weghted_loss = perceptual_loss*0.8 + mse_loss*0.2
-        return perceptual_loss, mse_loss, weghted_loss
+        # Weighted loss with adjusted weights
+        # weighted_loss = perceptual_loss * 0.9 + mse_loss * 0.1  
+        # return perceptual_loss, mse_loss, weighted_loss
+        return mse_loss
 
-    def train(self, data_loader, optimizer, weight_templates, num_epochs=100, patience=10):
+    def train(self, data_loader, optimizer, weight_templates, num_epochs=1000, patience=15):
         best_loss = float('inf')
         epochs_without_improvement = 0
         
@@ -141,41 +216,42 @@ class DiffusionTrainer:
                 x_noisy = self.q_sample(x_start, t).to(x_start.device)
                 condition = weight_templates[idx].to(x_start.device)
 
-                perceptual_loss, mse, weighted_loss = self.loss_fn(x_noisy, t, x_start, condition)
-                train_perceptual_loss += perceptual_loss.item()
-                train_loss += weighted_loss.item()
+                # perceptual_loss, mse, weighted_loss = self.loss_fn(x_noisy, t, x_start, condition)
+                mse = self.loss_fn(x_noisy, t, x_start, condition)
+                # train_perceptual_loss += perceptual_loss.item()
+                # train_loss += weighted_loss.item()  # Accumulate weighted loss
                 train_mse += mse.item()
 
                 optimizer.zero_grad()
-                perceptual_loss.backward()
+                # weighted_loss.backward()  # Backpropagate weighted loss
+                mse.backward()  # Backpropagate MSE
                 optimizer.step()
 
-            # Validation loop (add this)
+            # Validation loop
             self.model.eval()  # Set model to evaluation mode
             val_loss = 0.0
-            val_perceptual_loss = 0.0
+            # val_perceptual_loss = 0.0
             val_mse = 0.0
-            val_weighted_loss = 0.0
+            # val_weighted_loss = 0.0
             with torch.no_grad():
                 for i, (x_start, idx) in enumerate(val_data_loader):  # Use your validation data loader
                     x_start = x_start.to(device)
-                    x_start = transform(x_start)
+                    x_start = transform(x_start)  # Apply transformations to validation data
                     t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                     x_noisy = self.q_sample(x_start, t)
                     condition = weight_templates[idx].to(x_start.device)
                     perceptual_loss, mse, weighted_loss = self.loss_fn(x_noisy, t, x_start, condition)
                     val_perceptual_loss += perceptual_loss.item()
                     val_mse += mse.item()
-                    val_weighted_loss += weighted_loss.item()
-            val_perceptual_loss /= len(val_data_loader)
+                    val_weighted_loss += weighted_loss.item()  # Accumulate weighted loss
+            # val_perceptual_loss /= len(val_data_loader)
             val_mse /= len(val_data_loader)
-            val_weighted_loss /= len(val_data_loader)
-            val_loss = val_weighted_loss
+            # val_weighted_loss /= len(val_data_loader)
+            val_loss = val_mse  # Use weighted loss for validation
 
             print(f"Epoch [{epoch + 1}/{num_epochs}], "
-                  f"Train Perceptual Loss: {train_loss/len(data_loader):.4f}, Train MSE: {train_mse/len(data_loader):.4f}, "
-                  f"Val Perceptual Loss: {val_perceptual_loss:.4f}, Val MSE: {val_mse:.4f}, "
-                  f"Val Weighted Loss: {val_weighted_loss:.4f}")
+                  f"Train MSE: {train_mse/len(data_loader):.4f}, "
+                  f"Val MSE: {val_mse:.4f}")
             
             if val_loss < best_loss:
                 best_loss = val_loss
@@ -190,9 +266,8 @@ class DiffusionTrainer:
 
             scheduler.step(val_loss)  # Update learning rate based on validation loss
 
-
 # Initialize model
-model = ConditionalDiffusionModel(input_size, weight_template_size).to(device)
+model = ConditionalUNet(input_size, weight_template_size).to(device)
 # Initialize optimizers
 optimizer_adam = optim.Adam(model.parameters(), lr=lr)
 optimizer_rmsprop = optim.RMSprop(model.parameters(), lr=lr)
@@ -246,7 +321,7 @@ class DiffusionSampler:
         noise = torch.randn_like(x)
         return predicted_x_start * torch.sqrt(alpha_bar_t_prev) + noise * torch.sqrt(1 - alpha_bar_t_prev)
 
-    def sample(self, condition, img_shape=(150, 150, 1)):
+    def sample(self, condition, img_shape=(128, 128, 1)):  # Updated img_shape
         x = torch.randn((1, np.prod(img_shape))).to(condition.device)
         self.model.eval()
         with torch.no_grad():
@@ -260,23 +335,25 @@ sampler = DiffusionSampler(model)
 # Load weight templates for the user
 user_weight_template = weight_templates[0]
 user_weight_template = user_weight_template.clone().detach().float().unsqueeze(0)
+
 # Generate deepfake
 generated_image = sampler.sample(user_weight_template)
 generated_image = generated_image.detach().cpu().numpy()
 
 # Reshape to original image dimensions and save or display
-generated_image = generated_image.reshape(150, 150, 1)
+generated_image = generated_image.reshape(128, 128, 1)  # Reshape to 128x128
 
 # Displaying the original and generated images side by side
 fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
-# Original image
-axes[0].imshow(images[0].clone().detach().cpu().numpy().reshape(150, 150), cmap='gray')
+# Original image (resized to 128x128 for comparison)
+original_image = transforms.ToPILImage()(images[0].clone().detach().cpu()).resize((128, 128))
+axes[0].imshow(original_image, cmap='gray')
 axes[0].set_title("Original Image")
 axes[0].axis('off')
 
 # Generated image
-axes[1].imshow(generated_image.reshape(150, 150), cmap='gray')
+axes[1].imshow(generated_image.reshape(128, 128), cmap='gray')
 axes[1].set_title("Generated Image")
 axes[1].axis('off')
 
