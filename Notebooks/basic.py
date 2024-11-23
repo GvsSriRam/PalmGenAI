@@ -27,7 +27,10 @@ class ConditionalDiffusionModel(nn.Module):
         self.bn1 = nn.BatchNorm2d(32)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1) # Convolutional layer
         self.bn2 = nn.BatchNorm2d(64)
-        self.fc1 = nn.Linear(64 * 75 * 75 + weight_template_size, 1024) # Adjusted FC layer
+        test_input = torch.randn(1, 1, 150, 150)
+        test_output = self.conv2(F.max_pool2d(F.relu(self.bn1(self.conv1(test_input))), 2))
+        correct_size = test_output.view(-1).shape[0] 
+        self.fc1 = nn.Linear(correct_size + weight_template_size, 1024) # Adjusted FC layer
         self.bn3 = nn.BatchNorm1d(1024)
         self.fc2 = nn.Linear(1024, 512)
         self.bn4 = nn.BatchNorm1d(512)
@@ -93,7 +96,6 @@ class DiffusionTrainer:
     def loss_fn(self, x_noisy, t, x_start, condition):
         x_noisy = x_noisy.to(device)
         condition = condition.to(device)
-        print(x_noisy.device, condition.device)
         predicted_x_start = self.model(x_noisy, condition)
         perceptual_loss = self.perceptual_loss(predicted_x_start, x_start)
         mse_loss = F.mse_loss(predicted_x_start, x_start)  # Calculate MSE for monitoring
