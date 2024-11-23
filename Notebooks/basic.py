@@ -1,3 +1,4 @@
+import PIL.ImageMode
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -8,6 +9,7 @@ import matplotlib.pyplot as plt
 import copy
 from torchvision import transforms
 from torchvision.models import vgg16
+import PIL
 
 # Hyperparameters
 batch_size = 16
@@ -20,14 +22,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Define your transformations
 transform = transforms.Compose([
-    transforms.ToPILImage(),
-    transforms.RandomHorizontalFlip(),
+    transforms.ToPILImage('L'),
+    # transforms.RandomHorizontalFlip(),
     # transforms.RandomRotation(10),  # Rotate by up to 10 degrees
     transforms.ToTensor(),
 ])
 
 val_transform = transforms.Compose([
-    transforms.ToPILImage(),
+    transforms.ToPILImage('L'),
     transforms.ToTensor(),  # Only ToTensor for validation
 ])
 
