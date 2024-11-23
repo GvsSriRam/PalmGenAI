@@ -91,6 +91,8 @@ class DiffusionTrainer:
         return F.l1_loss(features_generated, features_real)
 
     def loss_fn(self, x_noisy, t, x_start, condition):
+        x_noisy = x_noisy.to(device)
+        condition = condition.to(device)
         print(x_noisy.device, condition.device)
         predicted_x_start = self.model(x_noisy, condition)
         perceptual_loss = self.perceptual_loss(predicted_x_start, x_start)
