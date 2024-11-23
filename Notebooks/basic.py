@@ -11,6 +11,9 @@ from torchvision.models import vgg16
 
 # Hyperparameters
 batch_size = 16
+input_size = 150 * 150 * 1  # Example for 64x64 RGB images
+weight_template_size = 128  # Assuming your weight template is 256-dimensional
+lr = 1e-5
 
 # Check for GPU availability
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -186,16 +189,13 @@ class DiffusionTrainer:
 
             scheduler.step(val_loss)  # Update learning rate based on validation loss
 
-# Input image size and weight template size
-input_size = 150 * 150 * 1  # Example for 64x64 RGB images
-weight_template_size = 128  # Assuming your weight template is 256-dimensional
 
 # Initialize model
 model = ConditionalDiffusionModel(input_size, weight_template_size).to(device)
 # Initialize optimizers
-optimizer_adam = optim.Adam(model.parameters(), lr=0.00001)
-optimizer_rmsprop = optim.RMSprop(model.parameters(), lr=0.001)
-optimizer_adamw = optim.AdamW(model.parameters(), lr=0.001)
+optimizer_adam = optim.Adam(model.parameters(), lr=lr)
+optimizer_rmsprop = optim.RMSprop(model.parameters(), lr=lr)
+optimizer_adamw = optim.AdamW(model.parameters(), lr=lr)
 
 optimizer = optimizer_adam
 
