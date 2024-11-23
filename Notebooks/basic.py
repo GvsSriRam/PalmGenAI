@@ -30,42 +30,55 @@ class ConditionalDiffusionModel(nn.Module):
         test_input = torch.randn(1, 1, 150, 150)
         test_output = self.conv2(F.max_pool2d(F.relu(self.bn1(self.conv1(test_input))), 2))
         correct_size = test_output.view(-1).shape[0]
-        self.fc1 = nn.Linear(correct_size + weight_template_size, 1024) # Adjusted FC layer
+        # self.fc1 = nn.Linear(correct_size + weight_template_size, 1024) # Adjusted FC layer
+        self.fc1 = nn.Linear(40128, 1024) # Adjusted FC layer
         self.bn3 = nn.BatchNorm1d(1024)
         self.fc2 = nn.Linear(1024, 512)
         self.bn4 = nn.BatchNorm1d(512)
-        self.fc3 = nn.Linear(512, 64 * 75 * 75) # Output reshaped for deconvolution
+        # self.fc3 = nn.Linear(512, 64 * 75 * 75) # Output reshaped for deconvolution
+        self.fc3 = nn.Linear(512, 40000) # Output reshaped for deconvolution
         self.deconv1 = nn.ConvTranspose2d(64, 32, kernel_size=3, padding=1) # Deconvolutional layer
         self.bn5 = nn.BatchNorm2d(32)
         self.deconv2 = nn.ConvTranspose2d(32, 1, kernel_size=3, padding=1) # Deconvolutional layer
 
     def forward(self, x, condition):
         # Concatenate the image and weight template (condition)
-        print(x.shape)
+        # print(x.shape)
         x = x.view(-1, 1, 150, 150) # Reshape for convolution
-        print(x.shape)
+        # print(x.shape)
         x = F.relu(self.bn1(self.conv1(x)))
-        print(x.shape)
+        # print(x.shape)
         x = F.max_pool2d(x, 2) # Downsampling
-        print(x.shape)
+        # print(x.shape)
         x = F.relu(self.bn2(self.conv2(x)))
-        print(x.shape)
+        # print(x.shape)
         x = F.max_pool2d(x, 3) # Downsampling
-        print(x.shape)
+        # print(x.shape)
         x = x.flatten(1)
-        print(x.shape)
+        # print(x.shape)
         # x = x.view(-1, 64 * 75 * 75) # Flatten for concatenation
         x = torch.cat((x, condition), dim=-1)
+        # print(x.shape)
         x = F.relu(self.bn3(self.fc1(x)))
+        # print(x.shape)
         x = F.relu(self.bn4(self.fc2(x)))
+        # print(x.shape)
         x = self.fc3(x)
+        # print(x.shape)
         x = x.flatten(1)
-        # x = x.view(-1, 64, 75, 75) # Reshape for deconvolution
+        # print(x.shape)
+        x = x.view(-1, 64, 25, 25) # Reshape for deconvolution
+        # print(self.deconv1(x).shape)
         x = F.relu(self.bn5(self.deconv1(x)))
+        # print(x.shape)
         x = F.interpolate(x, scale_factor=3) # Upsampling
+        # print(x.shape)
         x = self.deconv2(x)
+        # print(x.shape)
         x = F.interpolate(x, scale_factor=2) # Upsampling
-        x = x.view(-1, 150 * 150) # Flatten the output
+        # print(x.shape)
+        x = x.view(1, -1, 150 * 150) # Flatten the output
+        # print(x.shape)
         return x
 
 
@@ -97,8 +110,15 @@ class DiffusionTrainer:
     
     def perceptual_loss(self, x_generated, x_real):
         # Extract features from VGG16
-        features_generated = self.vgg(x_generated.view(-1, 1, 150, 150))
-        features_real = self.vgg(x_real.view(-1, 1, 150, 150))
+        # print(x_generated.shape)
+        # print(x_real.shape)
+        # print(x_generated.view(-1, 1, 150, 150).shape)
+        # print(x_real.view(-1, 1, 150, 150).shape)
+        # print(self.vgg)
+        x_generated = torch.cat([x_generated.view(-1, 1, 150, 150)] * 3, dim=1)
+        features_generated = self.vgg(x_generated)
+        x_real = torch.cat([x_real.view(-1, 1, 150, 150)] * 3, dim=1)
+        features_real = self.vgg(x_real)
         # Calculate L1 loss between features
         return F.l1_loss(features_generated, features_real)
 
