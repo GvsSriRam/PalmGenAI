@@ -117,7 +117,7 @@ class DiffusionTrainer:
         # print(self.vgg)
         x_generated = torch.cat([x_generated.view(-1, 1, 150, 150)] * 3, dim=1)
         print(x_generated.device)
-        print(self.vgg.device)
+        print(self.vgg.to(device))
         features_generated = self.vgg(x_generated)
         x_real = torch.cat([x_real.view(-1, 1, 150, 150)] * 3, dim=1)
         print(features_generated.device)
