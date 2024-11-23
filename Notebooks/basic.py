@@ -176,7 +176,7 @@ weight_template_size = 128  # Assuming your weight template is 256-dimensional
 # Initialize model
 model = ConditionalDiffusionModel(input_size, weight_template_size).to(device)
 # Initialize optimizers
-optimizer_adam = optim.Adam(model.parameters(), lr=0.001)
+optimizer_adam = optim.Adam(model.parameters(), lr=0.00001)
 optimizer_rmsprop = optim.RMSprop(model.parameters(), lr=0.001)
 optimizer_adamw = optim.AdamW(model.parameters(), lr=0.001)
 
