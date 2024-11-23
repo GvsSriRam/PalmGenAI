@@ -12,9 +12,9 @@ from torchvision.models import vgg16
 import PIL
 
 # Hyperparameters
-batch_size = 16
+batch_size = 4
 input_size = 150 * 150 * 1  # Example for 64x64 RGB images
-weight_template_size = 128  # Assuming your weight template is 256-dimensional
+weight_template_size = 64  # Assuming your weight template is 256-dimensional
 lr = 1e-6
 
 # Check for GPU availability
@@ -199,7 +199,7 @@ optimizer_adam = optim.Adam(model.parameters(), lr=lr)
 optimizer_rmsprop = optim.RMSprop(model.parameters(), lr=lr)
 optimizer_adamw = optim.AdamW(model.parameters(), lr=lr)
 
-optimizer = optimizer_adamw
+optimizer = optimizer_adam
 
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
 trainer = DiffusionTrainer(model)
@@ -212,7 +212,6 @@ test_weight_templates = np.load(f"Datasets/IITD Palmprint V1/Preprocessed/Left/X
 
 # Preprocessing
 images = torch.tensor(images).float().view(-1, input_size)  # Flatten images
-print(images.max(), images.min())
 weight_templates = torch.tensor(weight_templates).float()
 test_images = torch.tensor(test_images).float().view(-1, input_size)
 test_weight_templates = torch.tensor(test_weight_templates).float()
