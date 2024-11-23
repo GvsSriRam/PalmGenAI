@@ -61,6 +61,7 @@ class ConditionalDiffusionModel(nn.Module):
         x = self.deconv2(x)
         x = F.interpolate(x, scale_factor=2) # Upsampling
         x = x.view(1, -1, 150 * 150) # Flatten the output
+        x = torch.sigmoid(x) # Sigmoid activation for pixel values
         return x
 
 
@@ -126,12 +127,12 @@ class DiffusionTrainer:
                 x_noisy = self.q_sample(x_start, t).to(x_start.device)
                 condition = weight_templates[idx].to(x_start.device)
 
-                loss, mse = self.loss_fn(x_noisy, t, x_start, condition)
-                train_loss += loss.item()
+                perceptual_loss, mse = self.loss_fn(x_noisy, t, x_start, condition)
+                train_loss += perceptual_loss.item()
                 train_mse += mse.item()
 
                 optimizer.zero_grad()
-                loss.backward()
+                perceptual_loss.backward()
                 optimizer.step()
 
             # Validation loop (add this)
@@ -143,15 +144,16 @@ class DiffusionTrainer:
                     t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                     x_noisy = self.q_sample(x_start, t)
                     condition = weight_templates[idx].to(x_start.device)
-                    loss, mse = self.loss_fn(x_noisy, t, x_start, condition)
-                    val_loss += loss.item()
+                    perceptual_loss, mse = self.loss_fn(x_noisy, t, x_start, condition)
+                    val_perceptual_loss += perceptual_loss.item()
                     val_mse += mse.item()
-            val_loss /= len(val_data_loader)
+            val_perceptual_loss /= len(val_data_loader)
             val_mse /= len(val_data_loader)
+            val_loss = val_mse
 
             print(f"Epoch [{epoch + 1}/{num_epochs}], "
                   f"Train Loss: {train_loss/len(data_loader):.4f}, Train MSE: {train_mse/len(data_loader):.4f}, "
-                  f"Val Loss: {val_loss:.4f}, Val MSE: {val_mse:.4f}")
+                  f"Val Loss: {val_perceptual_loss:.4f}, Val MSE: {val_mse:.4f}")
             
             if val_loss < best_loss:
                 best_loss = val_loss
@@ -173,11 +175,11 @@ weight_template_size = 128  # Assuming your weight template is 256-dimensional
 # Initialize model
 model = ConditionalDiffusionModel(input_size, weight_template_size).to(device)
 # Initialize optimizers
-optimizer_adam = optim.Adam(model.parameters(), lr=0.001)
+optimizer_adam = optim.Adam(model.parameters(), lr=0.0001)
 optimizer_rmsprop = optim.RMSprop(model.parameters(), lr=0.001)
 optimizer_adamw = optim.AdamW(model.parameters(), lr=0.001)
 
-optimizer = optimizer_rmsprop
+optimizer = optimizer_adam
 
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
 trainer = DiffusionTrainer(model)
