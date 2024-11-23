@@ -150,11 +150,11 @@ class DiffusionTrainer:
                     val_mse += mse.item()
             val_perceptual_loss /= len(val_data_loader)
             val_mse /= len(val_data_loader)
-            val_loss = val_mse
+            val_loss = val_perceptual_loss
 
             print(f"Epoch [{epoch + 1}/{num_epochs}], "
-                  f"Train Loss: {train_loss/len(data_loader):.4f}, Train MSE: {train_mse/len(data_loader):.4f}, "
-                  f"Val Loss: {val_perceptual_loss:.4f}, Val MSE: {val_mse:.4f}")
+                  f"Train Perceptual Loss: {train_loss/len(data_loader):.4f}, Train MSE: {train_mse/len(data_loader):.4f}, "
+                  f"Val Perceptual Loss: {val_perceptual_loss:.4f}, Val MSE: {val_mse:.4f}")
             
             if val_loss < best_loss:
                 best_loss = val_loss
