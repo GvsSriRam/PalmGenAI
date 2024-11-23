@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader, TensorDataset
 import matplotlib.pyplot as plt
 import copy
 from torchvision import transforms
+from torchvision.models import vgg16
 
 # Check for GPU availability
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -22,34 +23,53 @@ transform = transforms.Compose([
 class ConditionalDiffusionModel(nn.Module):
     def __init__(self, input_size, weight_template_size):
         super(ConditionalDiffusionModel, self).__init__()
-        self.fc1 = nn.Linear(input_size + weight_template_size, 1024)
-        self.bn1 = nn.BatchNorm1d(1024)
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1) # Convolutional layer
+        self.bn1 = nn.BatchNorm2d(32)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1) # Convolutional layer
+        self.bn2 = nn.BatchNorm2d(64)
+        self.fc1 = nn.Linear(64 * 75 * 75 + weight_template_size, 1024) # Adjusted FC layer
+        self.bn3 = nn.BatchNorm1d(1024)
         self.fc2 = nn.Linear(1024, 512)
-        self.bn2 = nn.BatchNorm1d(512)
-        self.fc3 = nn.Linear(512, input_size)
+        self.bn4 = nn.BatchNorm1d(512)
+        self.fc3 = nn.Linear(512, 64 * 75 * 75) # Output reshaped for deconvolution
+        self.deconv1 = nn.ConvTranspose2d(64, 32, kernel_size=3, padding=1) # Deconvolutional layer
+        self.bn5 = nn.BatchNorm2d(32)
+        self.deconv2 = nn.ConvTranspose2d(32, 1, kernel_size=3, padding=1) # Deconvolutional layer
 
     def forward(self, x, condition):
         # Concatenate the image and weight template (condition)
-        print(x.device, condition.device)
-        print(x.shape, condition.shape)
-        if len(x.shape) == len(condition.shape) + 1:
-            x = x.squeeze(0)
-        print(x.shape, condition.shape)
+        x = x.view(-1, 1, 150, 150) # Reshape for convolution
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.max_pool2d(x, 2) # Downsampling
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.max_pool2d(x, 2) # Downsampling
+        x = x.view(-1, 64 * 75 * 75) # Flatten for concatenation
         x = torch.cat((x, condition), dim=-1)
-        x = F.relu(self.bn1(self.fc1(x)))
-        x = F.relu(self.bn2(self.fc2(x)))
+        x = F.relu(self.bn3(self.fc1(x)))
+        x = F.relu(self.bn4(self.fc2(x)))
         x = self.fc3(x)
+        x = x.view(-1, 64, 75, 75) # Reshape for deconvolution
+        x = F.relu(self.bn5(self.deconv1(x)))
+        x = F.interpolate(x, scale_factor=2) # Upsampling
+        x = self.deconv2(x)
+        x = F.interpolate(x, scale_factor=2) # Upsampling
+        x = x.view(-1, 150 * 150) # Flatten the output
         return x
 
 
 class DiffusionTrainer:
-    def __init__(self, model, timesteps=1000):
+    def __init__(self, model, timesteps=10000):
         self.model = model
         self.timesteps = timesteps
         self.beta = np.linspace(1e-4, 0.02, timesteps)  # Linear schedule
         self.alpha = 1 - self.beta
         self.alpha_bar = np.cumprod(self.alpha)
         self.alpha_bar = torch.tensor(self.alpha_bar, dtype=torch.float32).to(device)
+
+        # Initialize VGG model for perceptual loss
+        self.vgg = vgg16(pretrained=True).features.to(device)
+        for param in self.vgg.parameters():
+            param.requires_grad = False
 
     def sample_noise(self, shape):
         return torch.randn(shape)
@@ -62,16 +82,27 @@ class DiffusionTrainer:
         alpha_bar_t = self.alpha_bar[t].view(-1, 1)
         
         return torch.sqrt(alpha_bar_t) * x_start + torch.sqrt(1 - alpha_bar_t) * noise
+    
+    def perceptual_loss(self, x_generated, x_real):
+        # Extract features from VGG16
+        features_generated = self.vgg(x_generated.view(-1, 1, 150, 150))
+        features_real = self.vgg(x_real.view(-1, 1, 150, 150))
+        # Calculate L1 loss between features
+        return F.l1_loss(features_generated, features_real)
 
     def loss_fn(self, x_noisy, t, x_start, condition):
         predicted_x_start = self.model(x_noisy, condition)
-        return F.mse_loss(predicted_x_start, x_start)
+        perceptual_loss = self.perceptual_loss(predicted_x_start, x_start)
+        mse_loss = F.mse_loss(predicted_x_start, x_start)  # Calculate MSE for monitoring
+        return perceptual_loss, mse_loss
 
     def train(self, data_loader, optimizer, weight_templates, num_epochs=100, patience=10):
         best_loss = float('inf')
         epochs_without_improvement = 0
         
         for epoch in range(num_epochs):
+            train_loss = 0.0
+            train_mse = 0.0
             for i, (x_start, idx) in enumerate(data_loader):
                 x_start = x_start.to(device)
                 x_start = transform(x_start)  # Apply transformations
@@ -79,7 +110,9 @@ class DiffusionTrainer:
                 x_noisy = self.q_sample(x_start, t).to(x_start.device)
                 condition = weight_templates[idx].to(x_start.device)
 
-                loss = self.loss_fn(x_noisy, t, x_start, condition)
+                loss, mse = self.loss_fn(x_noisy, t, x_start, condition)
+                train_loss += loss.item()
+                train_mse += mse.item()
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -88,16 +121,21 @@ class DiffusionTrainer:
             # Validation loop (add this)
             self.model.eval()  # Set model to evaluation mode
             val_loss = 0.0
+            val_mse = 0.0
             with torch.no_grad():
                 for i, (x_start, idx) in enumerate(val_data_loader):  # Use your validation data loader
                     t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                     x_noisy = self.q_sample(x_start, t)
                     condition = weight_templates[idx].to(x_start.device)
-                    loss = self.loss_fn(x_noisy, t, x_start, condition)
+                    loss, mse = self.loss_fn(x_noisy, t, x_start, condition)
                     val_loss += loss.item()
+                    val_mse += mse.item()
             val_loss /= len(val_data_loader)
+            val_mse /= len(val_data_loader)
 
-            print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
+            print(f"Epoch [{epoch + 1}/{num_epochs}], "
+                  f"Train Loss: {train_loss/len(data_loader):.4f}, Train MSE: {train_mse/len(data_loader):.4f}, "
+                  f"Val Loss: {val_loss:.4f}, Val MSE: {val_mse:.4f}")
             
             if val_loss < best_loss:
                 best_loss = val_loss
@@ -118,7 +156,13 @@ weight_template_size = 128  # Assuming your weight template is 256-dimensional
 
 # Initialize model
 model = ConditionalDiffusionModel(input_size, weight_template_size).to(device)
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+# Initialize optimizers
+optimizer_adam = optim.Adam(model.parameters(), lr=0.001)
+optimizer_rmsprop = optim.RMSprop(model.parameters(), lr=0.001)
+optimizer_adamw = optim.AdamW(model.parameters(), lr=0.001)
+
+optimizer = optimizer_adam
+
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
 trainer = DiffusionTrainer(model)
 
@@ -147,7 +191,7 @@ val_dataset = TensorDataset(test_images, torch.arange(test_images.shape[0]))
 val_data_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
 
 # Train the model
-trainer.train(data_loader, optimizer, weight_templates, num_epochs=500)
+trainer.train(data_loader, optimizer, weight_templates, num_epochs=1000)
 
 class DiffusionSampler:
     def __init__(self, model, timesteps=1000):
