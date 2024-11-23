@@ -29,7 +29,7 @@ class ConditionalDiffusionModel(nn.Module):
         self.bn2 = nn.BatchNorm2d(64)
         test_input = torch.randn(1, 1, 150, 150)
         test_output = self.conv2(F.max_pool2d(F.relu(self.bn1(self.conv1(test_input))), 2))
-        correct_size = test_output.view(-1).shape[0] 
+        correct_size = test_output.view(-1).shape[0]
         self.fc1 = nn.Linear(correct_size + weight_template_size, 1024) # Adjusted FC layer
         self.bn3 = nn.BatchNorm1d(1024)
         self.fc2 = nn.Linear(1024, 512)
@@ -46,12 +46,14 @@ class ConditionalDiffusionModel(nn.Module):
         x = F.max_pool2d(x, 2) # Downsampling
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.max_pool2d(x, 2) # Downsampling
-        x = x.view(-1, 64 * 75 * 75) # Flatten for concatenation
+        x = x.flatten(1)
+        # x = x.view(-1, 64 * 75 * 75) # Flatten for concatenation
         x = torch.cat((x, condition), dim=-1)
         x = F.relu(self.bn3(self.fc1(x)))
         x = F.relu(self.bn4(self.fc2(x)))
         x = self.fc3(x)
-        x = x.view(-1, 64, 75, 75) # Reshape for deconvolution
+        x = x.flatten(1)
+        # x = x.view(-1, 64, 75, 75) # Reshape for deconvolution
         x = F.relu(self.bn5(self.deconv1(x)))
         x = F.interpolate(x, scale_factor=2) # Upsampling
         x = self.deconv2(x)
