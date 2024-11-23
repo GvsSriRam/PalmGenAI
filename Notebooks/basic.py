@@ -9,6 +9,9 @@ import copy
 from torchvision import transforms
 from torchvision.models import vgg16
 
+# Hyperparameters
+batch_size = 16
+
 # Check for GPU availability
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -16,8 +19,13 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 transform = transforms.Compose([
     transforms.ToPILImage(),
     transforms.RandomHorizontalFlip(),
-    transforms.RandomRotation(10),  # Rotate by up to 10 degrees
+    # transforms.RandomRotation(10),  # Rotate by up to 10 degrees
     transforms.ToTensor(),
+])
+
+val_transform = transforms.Compose([
+    transforms.ToPILImage(),
+    transforms.ToTensor(),  # Only ToTensor for validation
 ])
 
 class ConditionalDiffusionModel(nn.Module):
@@ -111,7 +119,8 @@ class DiffusionTrainer:
             x_start = x_start.view(predicted_x_start.shape)
         perceptual_loss = self.perceptual_loss(predicted_x_start, x_start)
         mse_loss = F.mse_loss(predicted_x_start, x_start)  # Calculate MSE for monitoring
-        return perceptual_loss, mse_loss
+        weghted_loss = perceptual_loss*0.8 + mse_loss*0.2
+        return perceptual_loss, mse_loss, weghted_loss
 
     def train(self, data_loader, optimizer, weight_templates, num_epochs=100, patience=10):
         best_loss = float('inf')
@@ -119,6 +128,7 @@ class DiffusionTrainer:
         
         for epoch in range(num_epochs):
             train_loss = 0.0
+            train_perceptual_loss = 0.0
             train_mse = 0.0
             for i, (x_start, idx) in enumerate(data_loader):
                 x_start = x_start.to(device)
@@ -127,8 +137,9 @@ class DiffusionTrainer:
                 x_noisy = self.q_sample(x_start, t).to(x_start.device)
                 condition = weight_templates[idx].to(x_start.device)
 
-                perceptual_loss, mse = self.loss_fn(x_noisy, t, x_start, condition)
-                train_loss += perceptual_loss.item()
+                perceptual_loss, mse, weighted_loss = self.loss_fn(x_noisy, t, x_start, condition)
+                train_perceptual_loss += perceptual_loss.item()
+                train_loss += weighted_loss.item()
                 train_mse += mse.item()
 
                 optimizer.zero_grad()
@@ -140,17 +151,22 @@ class DiffusionTrainer:
             val_loss = 0.0
             val_perceptual_loss = 0.0
             val_mse = 0.0
+            val_weighted_loss = 0.0
             with torch.no_grad():
                 for i, (x_start, idx) in enumerate(val_data_loader):  # Use your validation data loader
+                    x_start = x_start.to(device)
+                    x_start = val_transform(x_start)
                     t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                     x_noisy = self.q_sample(x_start, t)
                     condition = weight_templates[idx].to(x_start.device)
-                    perceptual_loss, mse = self.loss_fn(x_noisy, t, x_start, condition)
+                    perceptual_loss, mse, weighted_loss = self.loss_fn(x_noisy, t, x_start, condition)
                     val_perceptual_loss += perceptual_loss.item()
                     val_mse += mse.item()
+                    val_weighted_loss += weighted_loss.item()
             val_perceptual_loss /= len(val_data_loader)
             val_mse /= len(val_data_loader)
-            val_loss = val_perceptual_loss
+            val_weighted_loss /= len(val_data_loader)
+            val_loss = val_weighted_loss
 
             print(f"Epoch [{epoch + 1}/{num_epochs}], "
                   f"Train Perceptual Loss: {train_loss/len(data_loader):.4f}, Train MSE: {train_mse/len(data_loader):.4f}, "
@@ -205,9 +221,9 @@ test_weight_templates = test_weight_templates.to(device)
 
 # Create dataset and dataloader
 dataset = TensorDataset(images, torch.arange(images.shape[0]))  # Pass indices for weight templates
-data_loader = DataLoader(dataset, batch_size=32, shuffle=True)
+data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 val_dataset = TensorDataset(test_images, torch.arange(test_images.shape[0]))
-val_data_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+val_data_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 # Train the model
 trainer.train(data_loader, optimizer, weight_templates, num_epochs=1000)
