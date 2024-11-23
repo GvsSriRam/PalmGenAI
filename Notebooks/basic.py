@@ -44,7 +44,7 @@ class ConditionalDiffusionModel(nn.Module):
         test_output = self.conv2(F.max_pool2d(F.relu(self.bn1(self.conv1(test_input))), 2))
         correct_size = test_output.view(-1).shape[0]
         # self.fc1 = nn.Linear(correct_size + weight_template_size, 1024) # Adjusted FC layer
-        self.fc1 = nn.Linear(40128, 1024) # Adjusted FC layer
+        self.fc1 = nn.Linear(40000 + weight_template_size, 1024) # Adjusted FC layer
         self.bn3 = nn.BatchNorm1d(1024)
         self.fc2 = nn.Linear(1024, 512)
         self.bn4 = nn.BatchNorm1d(512)
