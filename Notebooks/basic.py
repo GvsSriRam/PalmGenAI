@@ -129,6 +129,8 @@ class DiffusionTrainer:
         condition = condition.to(device)
         x_start = x_start.to(device)
         predicted_x_start = self.model(x_noisy, condition).to(device)
+        print(predicted_x_start.shape)
+        print(x_start.shape)
         perceptual_loss = self.perceptual_loss(predicted_x_start, x_start)
         mse_loss = F.mse_loss(predicted_x_start, x_start)  # Calculate MSE for monitoring
         return perceptual_loss, mse_loss
