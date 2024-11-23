@@ -91,6 +91,7 @@ class DiffusionTrainer:
         return F.l1_loss(features_generated, features_real)
 
     def loss_fn(self, x_noisy, t, x_start, condition):
+        print(x_noisy.device, condition.device)
         predicted_x_start = self.model(x_noisy, condition)
         perceptual_loss = self.perceptual_loss(predicted_x_start, x_start)
         mse_loss = F.mse_loss(predicted_x_start, x_start)  # Calculate MSE for monitoring
