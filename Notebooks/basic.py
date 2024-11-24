@@ -306,20 +306,21 @@ class DiffusionSampler:
         noise = torch.randn_like(x)
         return predicted_x_start * torch.sqrt(alpha_bar_t_prev) + noise * torch.sqrt(1 - alpha_bar_t_prev)
 
-    def sample(self, condition, img_shape=(128, 128, 1)):  # Updated img_shape
-        x = torch.randn((1, np.prod(img_shape))).to(condition.device)
+    def sample(self, conditions, img_shape=(128, 128, 1)):  # Updated img_shape
+        batch_size = conditions.shape[0]
+        x = torch.randn((batch_size, np.prod(img_shape))).to(conditions.device)
         self.model.eval()
         with torch.no_grad():
             for t in reversed(range(self.timesteps)):
-                x = self.p_sample(x, t, condition)
-        return x.view(img_shape)
+                x = self.p_sample(x, t, conditions)
+        return x.view(batch_size, *img_shape)
 
 # Initialize sampler
 sampler = DiffusionSampler(model)
 
 # Load weight templates for the user
-user_weight_template = weight_templates[0]
-user_weight_template = user_weight_template.clone().detach().float().unsqueeze(0)
+user_weight_template = weight_templates[0:1]
+user_weight_template = user_weight_template.clone().detach().float() #.unsqueeze(0)
 
 # Generate deepfake
 generated_image = sampler.sample(user_weight_template)
@@ -328,15 +329,11 @@ generated_image = generated_image.detach().cpu().numpy()
 # Reshape to original image dimensions and save or display
 generated_image = generated_image.reshape(128, 128, 1)  # Reshape to 128x128
 
-np.save('generated_image.npy', generated_image)  # Save the generated image
-np.save('user_weight_template.npy', user_weight_template.cpu().numpy())  # Save the user's weight template
-np.save('original_image.npy', images[0].cpu().numpy())  # Save the original image
-
 # Displaying the original and generated images side by side
 fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
 # Original image (resized to 128x128 for comparison)
-original_image = transforms.ToPILImage()(images[0].clone().detach().cpu().reshape(150, 150)).resize((128, 128))
+original_image = transforms.ToPILImage()(images[0].clone().detach().cpu()).resize((128, 128))
 axes[0].imshow(original_image, cmap='gray')
 axes[0].set_title("Original Image")
 axes[0].axis('off')
