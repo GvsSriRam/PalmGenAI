@@ -328,11 +328,15 @@ generated_image = generated_image.detach().cpu().numpy()
 # Reshape to original image dimensions and save or display
 generated_image = generated_image.reshape(128, 128, 1)  # Reshape to 128x128
 
+np.save('generated_image.npy', generated_image)  # Save the generated image
+np.save('user_weight_template.npy', user_weight_template)  # Save the user's weight template
+np.save('original_image.npy', images[0])  # Save the original image
+
 # Displaying the original and generated images side by side
 fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
 # Original image (resized to 128x128 for comparison)
-original_image = transforms.ToPILImage()(images[0].clone().detach().cpu()).resize((128, 128))
+original_image = transforms.ToPILImage()(images[0].clone().detach().cpu().reshape(150, 150)).resize((128, 128))
 axes[0].imshow(original_image, cmap='gray')
 axes[0].set_title("Original Image")
 axes[0].axis('off')
