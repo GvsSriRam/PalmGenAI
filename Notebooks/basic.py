@@ -198,18 +198,18 @@ class DiffusionTrainer:
         mse_loss = F.mse_loss(predicted_x_start, x_start)  # Calculate MSE for monitoring
         return mse_loss
 
-    def train(self, data_loader, optimizer, weight_templates, num_epochs=1000, patience=15):
+    def train(self, data_loader, optimizer, num_epochs=1000, patience=15):
         best_loss = float('inf')
         epochs_without_improvement = 0
-        
+
         for epoch in range(num_epochs):
             train_mse = 0.0
-            for i, (x_start, idx) in enumerate(data_loader):
+            for i, (x_start, condition) in enumerate(data_loader):
                 x_start = x_start.to(device)
                 x_start = transform(x_start)  # Apply transformations
                 t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                 x_noisy = self.q_sample(x_start, t).to(x_start.device)
-                condition = weight_templates[idx].to(x_start.device)
+                condition = condition.to(x_start.device)
 
                 mse = self.loss_fn(x_noisy, t, x_start, condition)
                 train_mse += mse.item()
@@ -223,12 +223,13 @@ class DiffusionTrainer:
             val_loss = 0.0
             val_mse = 0.0
             with torch.no_grad():
-                for i, (x_start, idx) in enumerate(val_data_loader):  # Use your validation data loader
+                for i, (x_start, condition) in enumerate(val_data_loader):  # Use your validation data loader
                     x_start = x_start.to(device)
                     x_start = transform(x_start)  # Apply transformations to validation data
                     t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                     x_noisy = self.q_sample(x_start, t)
-                    condition = weight_templates[idx].to(x_start.device)
+                    # condition = weight_templates[idx].to(x_start.device)
+                    condition = condition.to(x_start.device)
                     mse = self.loss_fn(x_noisy, t, x_start, condition)
                     val_mse += mse.item()
             val_mse /= len(val_data_loader)
@@ -282,13 +283,13 @@ test_images = test_images.to(device)
 test_weight_templates = test_weight_templates.to(device)
 
 # Create dataset and dataloader
-dataset = TensorDataset(images, torch.arange(images.shape[0]))  # Pass indices for weight templates
+dataset = TensorDataset(images, weight_templates)
 data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-val_dataset = TensorDataset(test_images, torch.arange(test_images.shape[0]))
+val_dataset = TensorDataset(test_images, test_weight_templates)
 val_data_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 # Train the model
-trainer.train(data_loader, optimizer, weight_templates, num_epochs=1000)
+trainer.train(data_loader, optimizer, num_epochs=1000)
 
 class DiffusionSampler:
     def __init__(self, model, timesteps=1000):
@@ -306,20 +307,21 @@ class DiffusionSampler:
         noise = torch.randn_like(x)
         return predicted_x_start * torch.sqrt(alpha_bar_t_prev) + noise * torch.sqrt(1 - alpha_bar_t_prev)
 
-    def sample(self, conditions, img_shape=(128, 128, 1)):  # Updated img_shape
-        batch_size = conditions.shape[0]
-        x = torch.randn((batch_size, np.prod(img_shape))).to(conditions.device)
+    def sample(self, condition, img_shape=(128, 128, 1)):  # Updated img_shape
+        condition = condition.to(device)
+        condition = condition.unsqueeze(0)
+        x = torch.randn((1, np.prod(img_shape))).to(condition.device)
         self.model.eval()
         with torch.no_grad():
             for t in reversed(range(self.timesteps)):
-                x = self.p_sample(x, t, conditions)
+                x = self.p_sample(x, t, condition)
         return x.view(batch_size, *img_shape)
 
 # Initialize sampler
 sampler = DiffusionSampler(model)
 
 # Load weight templates for the user
-user_weight_template = weight_templates[0:1]
+user_weight_template = weight_templates[0]
 user_weight_template = user_weight_template.clone().detach().float() #.unsqueeze(0)
 
 # Generate deepfake
