@@ -12,7 +12,7 @@ from torchvision.models import vgg16
 import PIL
 
 # Hyperparameters
-batch_size = 1
+batch_size = 8
 input_size = 150 * 150 * 1  # Example for 64x64 RGB images
 weight_template_size = 64  # Assuming your weight template is 256-dimensional
 lr = 1e-6
