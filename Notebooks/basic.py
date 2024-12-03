@@ -290,7 +290,7 @@ val_dataset = TensorDataset(test_images, test_weight_templates)
 val_data_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 # Train the model
-trainer.train(data_loader, optimizer, num_epochs=1)
+trainer.train(data_loader, optimizer, num_epochs=100)
 
 
 class DiffusionSampler:
