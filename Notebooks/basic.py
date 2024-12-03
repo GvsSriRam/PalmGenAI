@@ -12,7 +12,7 @@ from torchvision.models import vgg16
 
 # Hyperparameters
 batch_size = 1
-input_size = 150 * 150 * 1
+input_size = 128 * 128 * 1
 weight_template_size = 128
 lr = 1e-5
 n_timesteps = 1000
@@ -23,8 +23,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Define your transformations
 transform = transforms.Compose([
     transforms.ToPILImage('L'),
-    # transforms.Resize((128, 128), interpolation=transforms.InterpolationMode.BICUBIC),
-    transforms.CenterCrop(128),
     transforms.ToTensor()
 ])
 
@@ -266,11 +264,11 @@ scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0
 trainer = DiffusionTrainer(model, n_timesteps)
 
 # Load images and weight templates
-images = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy")  # Shape: (N, 64, 64, 3)
+images = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_resized.npy")  # Shape: (N, 64, 64, 3)
 weight_templates = np.load(
-    f"Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca_{weight_template_size}.npy")  # Shape: (N, 256)
-test_images = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_test.npy")
-test_weight_templates = np.load(f"Datasets/IITD Palmprint V1/Preprocessed/Left/X_test_pca_{weight_template_size}.npy")
+    f"Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca_resized_{weight_template_size}.npy")  # Shape: (N, 256)
+test_images = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_test_resized.npy")
+test_weight_templates = np.load(f"Datasets/IITD Palmprint V1/Preprocessed/Left/X_test_pca_resized_{weight_template_size}.npy")
 
 # Preprocessing
 images = torch.tensor(images).float().view(-1, input_size)  # Flatten images
@@ -291,7 +289,7 @@ val_dataset = TensorDataset(test_images, test_weight_templates)
 val_data_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 # Train the model
-trainer.train(data_loader, optimizer, num_epochs=1)
+trainer.train(data_loader, optimizer, num_epochs=1000)
 
 
 class DiffusionSampler:
