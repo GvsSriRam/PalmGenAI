@@ -15,7 +15,7 @@ batch_size = 1
 input_size = 128 * 128 * 1
 weight_template_size = 128
 lr = 1e-5
-n_timesteps = 1000
+n_timesteps = 10000
 
 # Check for GPU availability
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -351,5 +351,5 @@ axes[1].set_title("Generated Image")
 axes[1].axis('off')
 
 # Show the plot
-plt.savefig('diffusion.png')
+plt.savefig('diffusion_basic.png')
 plt.close()
