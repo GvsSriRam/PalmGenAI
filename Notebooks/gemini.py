@@ -70,9 +70,9 @@ class UNet(nn.Module):
 
     def upconv_block(self, in_channels, out_channels):
         return nn.Sequential(
-            nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2),
+            nn.ConvTranspose2d(in_channels + 128, out_channels, kernel_size=2, stride=2),  # Add 128 for the condition
             self.conv_block(in_channels, out_channels),
-        )
+    )
 
     def forward(self, x, condition):
         # Encoder
@@ -89,13 +89,13 @@ class UNet(nn.Module):
 
         # Decoder
         dec4_out = self.dec4(bottleneck_out)
-        dec4_out = torch.cat([dec4_out, enc4_out], dim=1)
+        # dec4_out = torch.cat([dec4_out, enc4_out], dim=1)
         dec3_out = self.dec3(dec4_out)
-        dec3_out = torch.cat([dec3_out, enc3_out], dim=1)
+        # dec3_out = torch.cat([dec3_out, enc3_out], dim=1)
         dec2_out = self.dec2(dec3_out)
-        dec2_out = torch.cat([dec2_out, enc2_out], dim=1)
+        # dec2_out = torch.cat([dec2_out, enc2_out], dim=1)
         dec1_out = self.dec1(dec2_out)
-        dec1_out = torch.cat([dec1_out, enc1_out], dim=1)
+        # dec1_out = torch.cat([dec1_out, enc1_out], dim=1)
 
         # Output
         out = torch.sigmoid(self.out(dec1_out))
