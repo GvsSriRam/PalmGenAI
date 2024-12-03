@@ -12,8 +12,8 @@ from torchvision.models import vgg16
 
 # Hyperparameters
 batch_size = 1
-input_size = 150 * 150 * 1  # Example for 64x64 RGB images
-weight_template_size = 64  # Assuming your weight template is 256-dimensional
+input_size = 150 * 150 * 1
+weight_template_size = 128
 lr = 1e-6
 
 # Check for GPU availability
@@ -85,10 +85,6 @@ class Up(nn.Module):
 
         x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
                         diffY // 2, diffY - diffY // 2])
-        # if you have padding issues, see
-        # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a   
-
-        # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633aefac1cf68ae434c8d13a48b2d3dc   
 
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
@@ -207,14 +203,11 @@ class DiffusionTrainer:
         for epoch in range(num_epochs):
             train_mse = 0.0
             for i, (x_start, condition) in enumerate(data_loader):
-                print(x_start.shape, condition.shape)
                 x_start = x_start.to(device)
                 x_start = transform(x_start)  # Apply transformations
-                print(x_start.shape)
                 t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                 x_noisy = self.q_sample(x_start, t).to(x_start.device)
                 condition = condition.to(x_start.device)
-                print(x_noisy.shape, x_start.shape, condition.shape)
 
                 mse = self.loss_fn(x_noisy, t, x_start, condition)
                 train_mse += mse.item()
@@ -319,7 +312,7 @@ class DiffusionSampler:
 
     def sample(self, condition, img_shape=(128, 128, 1)):  # Updated img_shape
         condition = condition.to(device)
-        condition = condition.unsqueeze(0)
+        # condition = condition.unsqueeze(0)
         x = torch.randn((1, np.prod(img_shape))).to(condition.device)
         self.model.eval()
         with torch.no_grad():
