@@ -1,411 +1,355 @@
-from tqdm import tqdm
+import copy
+
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
-from torchvision.utils import save_image, make_grid
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
 from torchvision import transforms
-import numpy as np
-from time import time
+from torchvision.models import vgg16
 
-''' 
-This script does conditional image generation on MNIST, using a diffusion model
+# Hyperparameters
+batch_size = 1
+input_size = 128 * 128 * 1
+weight_template_size = 128
+lr = 1e-6
+n_timesteps = 1000
 
-This code is modified from,
-https://github.com/cloneofsimo/minDiffusion
+# Check for GPU availability
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-Diffusion model is based on DDPM,
-https://arxiv.org/abs/2006.11239
+# Define your transformations
+transform = transforms.Compose([
+    transforms.ToPILImage('L'),
+    transforms.ToTensor()
+])
 
-The conditioning idea is taken from 'Classifier-Free Diffusion Guidance',
-https://arxiv.org/abs/2207.12598
 
-This technique also features in ImageGen 'Photorealistic Text-to-Image Diffusion Modelswith Deep Language Understanding',
-https://arxiv.org/abs/2205.11487
+class DoubleConv(nn.Module):
+    """(convolution => [BN] => ReLU) * 2"""
 
-'''
-
-class ResidualConvBlock(nn.Module):
-    def __init__(
-        self, in_channels: int, out_channels: int, is_res: bool = False
-    ) -> None:
+    def __init__(self, in_channels, out_channels, mid_channels=None):
         super().__init__()
-        '''
-        standard ResNet style convolutional block
-        '''
-        self.same_channels = in_channels==out_channels
-        self.is_res = is_res
-        self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, 3, 1, 1),
+
+        if not mid_channels:
+            mid_channels = out_channels
+        self.double_conv = nn.Sequential(
+            nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(mid_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
-            nn.GELU(),
-        )
-        self.conv2 = nn.Sequential(
-            nn.Conv2d(out_channels, out_channels, 3, 1, 1),
-            nn.BatchNorm2d(out_channels),
-            nn.GELU(),
+            nn.ReLU(inplace=True)
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.is_res:
-            x1 = self.conv1(x)
-            x2 = self.conv2(x1)
-            # this adds on correct residual in case channels have increased
-            if self.same_channels:
-                out = x + x2
-            else:
-                out = x1 + x2 
-            return out / 1.414
+    def forward(self, x):
+        return self.double_conv(x)
+
+
+class Down(nn.Module):
+    """Downscaling with maxpool then double conv"""
+
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.maxpool_conv = nn.Sequential(
+            nn.MaxPool2d(2),
+            DoubleConv(in_channels, out_channels)
+        )
+
+    def forward(self, x):
+        return self.maxpool_conv(x)
+
+
+class Up(nn.Module):
+    """Upscaling then double conv"""
+
+    def __init__(self, in_channels, out_channels, bilinear=True):
+        super().__init__()
+
+        # if bilinear, use the normal convolutions to reduce the number of channels
+        if bilinear:
+            self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+            self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
         else:
-            x1 = self.conv1(x)
-            x2 = self.conv2(x1)
-            return x2
+            self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
+            self.conv = DoubleConv(in_channels, out_channels)
+
+    def forward(self, x1, x2):
+        x1 = self.up(x1)
+        # input is CHW
+        diffY = x2.size()[2] - x1.size()[2]
+        diffX = x2.size()[3] - x1.size()[3]
+
+        x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
+                        diffY // 2, diffY - diffY // 2])
+
+        x = torch.cat([x2, x1], dim=1)
+        return self.conv(x)
 
 
-class UnetDown(nn.Module):
+class OutConv(nn.Module):
     def __init__(self, in_channels, out_channels):
-        super(UnetDown, self).__init__()
-        '''
-        process and downscale the image feature maps
-        '''
-        layers = [ResidualConvBlock(in_channels, out_channels), nn.Conv2d(out_channels, out_channels, 4, 2, 1)] #, nn.MaxPool2d(2)]
-        self.model = nn.Sequential(*layers)
+        super(OutConv, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
 
     def forward(self, x):
-        return self.model(x)
+        return self.conv(x)
 
 
-class UnetUp(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(UnetUp, self).__init__()
-        '''
-        process and upscale the image feature maps
-        '''
-        layers = [
-            nn.ConvTranspose2d(in_channels, out_channels, 4, 2, 1),
-            ResidualConvBlock(out_channels, out_channels),
-            ResidualConvBlock(out_channels, out_channels),
-        ]
-        self.model = nn.Sequential(*layers)
+class ConditionalUNet(nn.Module):
+    def __init__(self, input_size, weight_template_size, n_channels=1, n_classes=1, bilinear=True):
+        super(ConditionalUNet, self).__init__()
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+        self.bilinear = bilinear
+        self.factor = 2 if bilinear else 1
 
-    def forward(self, x, skip):
-        x = torch.cat((x, skip), 1)
-        x = self.model(x)
-        return x
+        self.inc = DoubleConv(n_channels, 64)
 
-class UnetUp2(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(UnetUp2, self).__init__()
-        '''
-        process and upscale the image feature maps
-        '''
-        layers = [
-            nn.ConvTranspose2d(in_channels, out_channels, 5, 2, 1),
-            ResidualConvBlock(out_channels, out_channels),
-            ResidualConvBlock(out_channels, out_channels),
-        ]
-        self.model = nn.Sequential(*layers)
+        self.down1 = Down(64, 128)
+        self.down2 = Down(128, 256)
+        self.down3 = Down(256, 512 // self.factor)
 
-    def forward(self, x, skip):
-        x = torch.cat((x, skip), 1)
-        x = self.model(x)
-        return x
+        self.fc_in_features = (512 // self.factor) * 16 * 16  # Calculate dynamically
+        self.fc1 = nn.Linear(self.fc_in_features + weight_template_size, 1024)
+        self.fc2 = nn.Linear(1024, 512)
+        self.fc3 = nn.Linear(512, self.fc_in_features)
 
+        self.up1 = Up(512, 256 // self.factor, bilinear)
+        self.up2 = Up(256, 128 // self.factor, bilinear)
+        self.up3 = Up(128, 64, bilinear)
+        self.outc = OutConv(64, n_classes)
 
-class EmbedFC(nn.Module):
-    def __init__(self, input_dim, emb_dim):
-        super(EmbedFC, self).__init__()
-        '''
-        generic one layer FC NN for embedding things  
-        '''
-        self.input_dim = input_dim
-        layers = [
-            # Modify for 1D Conv layer, BatchNorm, ReLU
-            nn.Linear(input_dim, emb_dim),
-            nn.GELU(),
-            nn.Linear(emb_dim, emb_dim),
-        ]
-        self.model = nn.Sequential(*layers)
+    def forward(self, x, condition):
+        x = x.view(-1, 1, 128, 128)  # Reshape for 128x128
+        x1 = self.inc(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
 
-    def forward(self, x):
-        x = x.view(-1, self.input_dim)
-        return self.model(x)
+        x4_flat = x4.flatten(1)
+        x_concat = torch.cat((x4_flat, condition), dim=-1)
+
+        x = F.relu(self.fc1(x_concat))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+
+        x = x.view(-1, 512 // self.factor, 16, 16)  # Reshape for upsampling
+
+        x = self.up1(x, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        logits = self.outc(x)
+        logits = torch.sigmoid(logits)  # Sigmoid for output
+        return logits.view(-1, 128 * 128)  # Flatten output
 
 
-class ContextUnet(nn.Module):
-    def __init__(self, in_channels, n_feat=256, weight_template_dim=150):
-        super(ContextUnet, self).__init__()
+class DiffusionTrainer:
+    def __init__(self, model, timesteps=1000):
+        self.model = model
+        self.timesteps = timesteps
+        self.beta = np.linspace(1e-4, 0.02, timesteps)  # Linear schedule
+        self.alpha = 1 - self.beta
+        self.alpha_bar = np.cumprod(self.alpha)
+        self.alpha_bar = torch.tensor(self.alpha_bar, dtype=torch.float32).to(device)
 
-        self.in_channels = in_channels
-        self.n_feat = n_feat
+        # Initialize VGG model for perceptual loss
+        self.vgg = vgg16(pretrained=True).features.to(device)
+        # Modify the first layer to accept 1 channel
+        self.vgg[0] = nn.Conv2d(1, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        for param in self.vgg.parameters():
+            param.requires_grad = False
 
-        self.init_conv = ResidualConvBlock(in_channels, n_feat, is_res=True)
+    def sample_noise(self, shape):
+        return torch.randn(shape)
 
-        self.down1 = UnetDown(n_feat, n_feat)
-        self.down2 = UnetDown(n_feat, 2 * n_feat)
+    def q_sample(self, x_start, t):
+        x_start = x_start.to(device)
+        noise = self.sample_noise(x_start.shape).to(x_start.device)
 
-        self.to_vec = nn.Sequential(nn.AvgPool2d(7), nn.GELU())
+        # Correct broadcasting for alpha_bar_t
+        alpha_bar_t = self.alpha_bar[t].view(-1, 1)
 
-        self.timeembed1 = EmbedFC(1, 2*n_feat)
-        self.timeembed2 = EmbedFC(1, 1*n_feat)
-        self.weightembed1 = EmbedFC(weight_template_dim, 2*n_feat)
-        self.weightembed2 = EmbedFC(weight_template_dim, 1*n_feat)
+        return torch.sqrt(alpha_bar_t) * x_start + torch.sqrt(1 - alpha_bar_t) * noise
 
-        self.up0 = nn.Sequential(
-            # nn.ConvTranspose2d(6 * n_feat, 2 * n_feat, 7, 7), # when concat temb and cemb end up w 6*n_feat
-            nn.ConvTranspose2d(2 * n_feat, 2 * n_feat, 9, 7), # otherwise just have 2*n_feat
-            nn.GroupNorm(8, 2 * n_feat),
-            nn.ReLU(),
-        )
+    def perceptual_loss(self, x_generated, x_real):
+        # Extract features from VGG16
+        x_generated = torch.cat([x_generated.view(-1, 1, 128, 128)] * 3, dim=1)  # Reshape for VGG
+        features_generated = self.vgg(x_generated)
+        x_real = torch.cat([x_real.view(-1, 1, 128, 128)] * 3, dim=1)  # Reshape for VGG
+        x_real = x_real.to(device)
+        features_real = self.vgg(x_real)
+        # Calculate L1 loss between features
+        return F.l1_loss(features_generated, features_real)
 
-        self.up1 = UnetUp2(4 * n_feat, n_feat)
-        
-        self.up2 = UnetUp(2 * n_feat, n_feat)
-        self.out = nn.Sequential(
-            nn.Conv2d(2 * n_feat, n_feat, 3, 1, 1),
-            nn.GroupNorm(8, n_feat),
-            nn.ReLU(),
-            nn.Conv2d(n_feat, self.in_channels, 3, 1, 1),
-        )
+    def loss_fn(self, x_noisy, t, x_start, condition):
+        x_noisy = x_noisy.to(device)
+        condition = condition.to(device)
+        x_start = x_start.to(device)
+        predicted_x_start = self.model(x_noisy, condition).to(device)
+        if x_start.shape != predicted_x_start.shape:
+            x_start = x_start.view(predicted_x_start.shape)
 
-    def forward(self, x, w, t):
-        x = self.init_conv(x)
-        down1 = self.down1(x)
-        down2 = self.down2(down1)
-        hiddenvec = self.to_vec(down2)
+        mse_loss = F.mse_loss(predicted_x_start, x_start)  # Calculate MSE for monitoring
+        return mse_loss
 
-        # Embed weight templates and time step
-        wem1 = self.weightembed1(w).view(-1, self.n_feat * 2, 1, 1)
-        temb1 = self.timeembed1(t).view(-1, self.n_feat * 2, 1, 1)
-        wem2 = self.weightembed2(w).view(-1, self.n_feat, 1, 1)
-        temb2 = self.timeembed2(t).view(-1, self.n_feat, 1, 1)
+    def train(self, data_loader, optimizer, num_epochs=1000, patience=15):
+        best_loss = float('inf')
+        epochs_without_improvement = 0
 
-        up1 = self.up0(hiddenvec)
-        up2 = self.up1(wem1 * up1 + temb1, down2)
-        up3 = self.up2(wem2 * up2 + temb2, down1)
-        out = self.out(torch.cat((up3, x), 1))
-        return out
+        for epoch in range(num_epochs):
+            train_mse = 0.0
+            for i, (x_start, condition) in enumerate(data_loader):
+                x_start = x_start.to(device)
+                x_start = transform(x_start)  # Apply transformations
+                t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
+                x_noisy = self.q_sample(x_start, t).to(x_start.device)
+                condition = condition.to(x_start.device)
 
+                mse = self.loss_fn(x_noisy, t, x_start, condition)
+                train_mse += mse.item()
 
-def ddpm_schedules(beta1, beta2, T):
-    """
-    Returns pre-computed schedules for DDPM sampling, training process.
-    """
-    assert beta1 < beta2 < 1.0, "beta1 and beta2 must be in (0, 1)"
+                optimizer.zero_grad()
+                mse.backward()  # Backpropagate MSE
+                optimizer.step()
 
-    beta_t = (beta2 - beta1) * torch.arange(0, T + 1, dtype=torch.float32) / T + beta1
-    sqrt_beta_t = torch.sqrt(beta_t)
-    alpha_t = 1 - beta_t
-    log_alpha_t = torch.log(alpha_t)
-    alphabar_t = torch.cumsum(log_alpha_t, dim=0).exp()
+            # Validation loop
+            self.model.eval()  # Set model to evaluation mode
+            val_loss = 0.0
+            val_mse = 0.0
+            with torch.no_grad():
+                for i, (x_start, condition) in enumerate(val_data_loader):  # Use your validation data loader
+                    x_start = x_start.to(device)
+                    x_start = transform(x_start)  # Apply transformations to validation data
+                    t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
+                    x_noisy = self.q_sample(x_start, t)
+                    # condition = weight_templates[idx].to(x_start.device)
+                    condition = condition.to(x_start.device)
+                    mse = self.loss_fn(x_noisy, t, x_start, condition)
+                    val_mse += mse.item()
+            val_mse /= len(val_data_loader)
+            val_loss = val_mse  # Use weighted loss for validation
 
-    sqrtab = torch.sqrt(alphabar_t)
-    oneover_sqrta = 1 / torch.sqrt(alpha_t)
+            print(f"Epoch [{epoch + 1}/{num_epochs}], "
+                  f"Train MSE: {train_mse / len(data_loader):.4f}, "
+                  f"Val MSE: {val_mse:.4f}")
 
-    sqrtmab = torch.sqrt(1 - alphabar_t)
-    mab_over_sqrtmab_inv = (1 - alpha_t) / sqrtmab
-
-    return {
-        "alpha_t": alpha_t,  # \alpha_t
-        "oneover_sqrta": oneover_sqrta,  # 1/\sqrt{\alpha_t}
-        "sqrt_beta_t": sqrt_beta_t,  # \sqrt{\beta_t}
-        "alphabar_t": alphabar_t,  # \bar{\alpha_t}
-        "sqrtab": sqrtab,  # \sqrt{\bar{\alpha_t}}
-        "sqrtmab": sqrtmab,  # \sqrt{1-\bar{\alpha_t}}
-        "mab_over_sqrtmab": mab_over_sqrtmab_inv,  # (1-\alpha_t)/\sqrt{1-\bar{\alpha_t}}
-    }
-
-
-class DDPM(nn.Module):
-    def __init__(self, nn_model, betas, n_T, device, drop_prob=0.1):
-        super(DDPM, self).__init__()
-        self.nn_model = nn_model.to(device)
-
-        # register_buffer allows accessing dictionary produced by ddpm_schedules
-        # e.g. can access self.sqrtab later
-        for k, v in ddpm_schedules(betas[0], betas[1], n_T).items():
-            self.register_buffer(k, v)
-
-        self.n_T = n_T
-        self.device = device
-        self.drop_prob = drop_prob
-        self.loss_mse = nn.MSELoss()
-
-    def forward(self, x, w):
-        """
-        this method is used in training, so samples t and noise randomly
-        """
-
-        _ts = torch.randint(1, self.n_T+1, (x.shape[0],)).to(self.device)  # t ~ Uniform(0, n_T)
-        noise = torch.randn_like(x)  # eps ~ N(0, 1)
-
-        x_t = (
-            self.sqrtab[_ts, None, None, None] * x
-            + self.sqrtmab[_ts, None, None, None] * noise
-        )  # This is the x_t, which is sqrt(alphabar) x_0 + sqrt(1-alphabar) * eps
-        # We should predict the "error term" from this x_t. Loss is what we return.
-        
-        # return MSE between added noise, and our predicted noise
-        return self.loss_mse(noise, self.nn_model(x_t, w, _ts / self.n_T))
-
-    def sample(self, n_sample, size, device, guide_w = 0.0, w=None):
-        # we follow the guidance sampling scheme described in 'Classifier-Free Diffusion Guidance'
-        # to make the fwd passes efficient, we concat two versions of the dataset,
-        # one with context_mask=0 and the other context_mask=1
-        # we then mix the outputs with the guidance scale, w
-        # where w>0 means more guidance
-
-        x_i = torch.randn(n_sample, *size).to(device)  # x_T ~ N(0, 1), sample initial noise
-        # c_i = torch.arange(0,10).to(device) # context for us just cycles throught the mnist labels
-        # c_i = c_i.repeat(int(n_sample/c_i.shape[0]))
-        # w_i = torch.randn(n_sample, 150).to(device)
-
-        # don't drop context at test time
-        # context_mask = torch.zeros_like(c_i).to(device)
-
-        # double the batch
-        # c_i = c_i.repeat(2)
-        # context_mask = context_mask.repeat(2)
-        # context_mask[n_sample:] = 1. # makes second half of batch context free
-
-        x_i_store = [] # keep track of generated steps in case want to plot something 
-        for i in range(self.n_T, 0, -1):
-            t_is = torch.tensor([i / self.n_T]).to(device)
-            t_is = t_is.repeat(n_sample,1,1,1)
-
-            # double batch
-            x_i = x_i.repeat(2,1,1,1)
-            t_is = t_is.repeat(2,1,1,1)
-            w_i = w.repeat(2,1)
-
-            z = torch.randn(n_sample, *size).to(device) if i > 1 else 0
-
-            # split predictions and compute weighting
-            eps = self.nn_model(x_i, w_i, t_is) #, context_mask)
-            eps1 = eps[:n_sample]
-            eps2 = eps[n_sample:]
-            eps = (1+guide_w)*eps1 - guide_w*eps2
-            x_i = x_i[:n_sample]
-            x_i = (
-                self.oneover_sqrta[i] * (x_i - eps * self.mab_over_sqrtmab[i])
-                + self.sqrt_beta_t[i] * z
-            )
-            if i%20==0 or i==self.n_T or i<8:
-                x_i_store.append(x_i.detach().cpu().numpy())
-        
-        x_i_store = np.array(x_i_store)
-        return x_i, x_i_store
-
-
-class CustomImageDataset(Dataset):
-    def __init__(self, image_path, weight_path, transform=None):
-        self.images = np.load(image_path)
-        self.weights = np.load(weight_path)
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.images)
-
-    def __getitem__(self, idx):
-        image = self.images[idx]
-        weight = self.weights[idx]
-        if self.transform:
-            image = self.transform(image)
-        return image, weight
-
-
-def train_custom_images(image_path, weight_path):
-
-    # Hyperparameters
-    n_epoch = 100
-    batch_size = 32
-    n_T = 400
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    print(f"Device: {device}")
-    print(f"Current GPU: {torch.cuda.current_device()}")
-    print(f"Memory allocated: {torch.cuda.memory_allocated()}")
-    print(f"Memory cached: {torch.cuda.memory_cached()}")
-    n_feat = 128
-    lrate = 1e-2
-    save_model = False
-    save_dir = './models/diffusion_outputs_custom/v3/'
-
-    # Create save directory
-    import os
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-
-    # Data transformation
-    transform = transforms.Compose([
-        transforms.ToTensor(), #Normalize to 0-1 if needed
-        #transforms.Normalize((0.5,), (0.5,)) #Optional Normalization
-    ])
-
-    dataset = CustomImageDataset(image_path, weight_path, transform=transform)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0) # Adjust num_workers as needed
-
-    ddpm = DDPM(nn_model=ContextUnet(in_channels=1, n_feat=n_feat, weight_template_dim=150), betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1) #Added weight_template_dim, update that if it is changed
-    ddpm.to(device)
-    optim = torch.optim.Adam(ddpm.parameters(), lr=lrate)
-
-    # optionally load a model
-    # ddpm.load_state_dict(torch.load("./data/diffusion_outputs/ddpm_unet01_mnist_9.pth"))
-
-    start = time()
-    for ep in range(n_epoch):
-        print(f'epoch {ep}')
-        # Display ddpm architecture
-        ddpm.train()
-
-        # linear lrate decay
-        optim.param_groups[0]['lr'] = lrate*(1-ep/n_epoch)
-
-        pbar = tqdm(dataloader)
-        loss_ema = None
-        for x, w in pbar:
-            optim.zero_grad()
-            x = x.to(device)
-            w = w.to(device)
-            w = w.float() # TODO: Check if this helps
-            loss = ddpm(x, w)
-            loss.backward()
-            if loss_ema is None:
-                loss_ema = loss.item()
+            if val_loss < best_loss:
+                best_loss = val_loss
+                best_model_state = copy.deepcopy(self.model.state_dict())  # Save best model weights
+                epochs_without_improvement = 0
             else:
-                loss_ema = 0.95 * loss_ema + 0.05 * loss.item()
-            pbar.set_description(f"loss: {loss_ema:.4f}")
-            optim.step()
-        
-        # for eval, save an image of currently generated samples (top rows)
-        # followed by real images (bottom rows)
-        ddpm.eval()
+                epochs_without_improvement += 1
+                if epochs_without_improvement >= patience:
+                    print(f"Early stopping at epoch {epoch + 1}")
+                    self.model.load_state_dict(best_model_state)  # Load best model weights
+                    break
+
+            scheduler.step(val_loss)  # Update learning rate based on validation loss
+
+
+# Initialize model
+model = ConditionalUNet(input_size, weight_template_size).to(device)
+# Initialize optimizers
+optimizer_adam = optim.Adam(model.parameters(), lr=lr)
+optimizer_rmsprop = optim.RMSprop(model.parameters(), lr=lr)
+optimizer_adamw = optim.AdamW(model.parameters(), lr=lr)
+
+optimizer = optimizer_adam
+
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
+trainer = DiffusionTrainer(model, n_timesteps)
+
+# Load images and weight templates
+images = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_resized.npy")  # Shape: (N, 64, 64, 3)
+weight_templates = np.load(
+    f"Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca_resized_{weight_template_size}.npy")  # Shape: (N, 256)
+test_images = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_test_resized.npy")
+test_weight_templates = np.load(f"Datasets/IITD Palmprint V1/Preprocessed/Left/X_test_pca_resized_{weight_template_size}.npy")
+
+# Preprocessing
+images = torch.tensor(images).float().view(-1, input_size)  # Flatten images
+weight_templates = torch.tensor(weight_templates).float()
+test_images = torch.tensor(test_images).float().view(-1, input_size)
+test_weight_templates = torch.tensor(test_weight_templates).float()
+
+# Move data to the appropriate device
+images = images.to(device)
+weight_templates = weight_templates.to(device)
+test_images = test_images.to(device)
+test_weight_templates = test_weight_templates.to(device)
+
+# Create dataset and dataloader
+dataset = TensorDataset(images, weight_templates)
+data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+val_dataset = TensorDataset(test_images, test_weight_templates)
+val_data_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+
+# Train the model
+trainer.train(data_loader, optimizer, num_epochs=1000)
+
+
+class DiffusionSampler:
+    def __init__(self, model, timesteps=1000):
+        self.model = model
+        self.timesteps = timesteps
+        self.beta = np.linspace(1e-4, 0.02, timesteps)  # Linear schedule
+        self.alpha = 1 - self.beta
+        self.alpha_bar = np.cumprod(self.alpha)
+
+    def p_sample(self, x, t, condition):
+        predicted_x_start = self.model(x, condition)
+        alpha_bar_t = torch.tensor(self.alpha_bar[t], dtype=torch.float32, device=x.device)
+        alpha_bar_t_prev = torch.tensor(self.alpha_bar[t - 1], dtype=torch.float32,
+                                        device=x.device) if t > 0 else torch.tensor(1.0, dtype=torch.float32,
+                                                                                    device=x.device)
+
+        noise = torch.randn_like(x)
+        return predicted_x_start * torch.sqrt(alpha_bar_t_prev) + noise * torch.sqrt(1 - alpha_bar_t_prev)
+
+    def sample(self, condition, img_shape=(128, 128, 1)):  # Updated img_shape
+        condition = condition.to(device)
+        # condition = condition.unsqueeze(0)
+        x = torch.randn((1, np.prod(img_shape))).to(condition.device)
+        self.model.eval()
         with torch.no_grad():
-            for x, w in dataloader:  # Iterate through dataloader for correct batch size
-                x = x.to(device)
-                w = w.to(device).float()
-                break
-                # x_gen, x_gen_store = ddpm.sample(x.shape[0], x.shape[1:], device, guide_w=0.0, w=w)
-            n_sample = min(10, x.shape[0])
-            # for w_i, w in enumerate(ws_test):
-            for i in range(n_sample):
-                w_sample = w[i].unsqueeze(0)
-                
-                x_gen, x_gen_store = ddpm.sample(1, (1, 150, 150), device, guide_w=0.0, w=w_sample) # Adjust guide_w as needed
-                x_gen_mod = x_gen*-1 + 1
-                x_gen_mod = 255*x_gen_mod
-                grid = make_grid(x_gen*-1 + 1, nrow=1)
-                save_image(grid, save_dir + f"image_{i}.png")
-                grid = make_grid(x_gen_mod, nrow=1)
-                save_image(grid, save_dir + f"image_{i}_mod.png")
-                # print('saved image at ' + save_dir + f"image_{i}.png")
-        # optionally save model
-        if save_model and ep == int(n_epoch-1):
-            torch.save(ddpm.state_dict(), save_dir + f"model_{ep}.pth")
-            print('saved model at ' + save_dir + f"model_{ep}.pth")
-        print(f'Epoch took {time()-start} seconds')
-        start = time()
+            for t in reversed(range(self.timesteps)):
+                x = self.p_sample(x, t, condition)
+        return x.view(batch_size, *img_shape)
 
 
-if __name__ == "__main__":
-    image_path = "Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy"
-    weight_path = "Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca.npy"
-    train_custom_images(image_path, weight_path)
+# Initialize sampler
+sampler = DiffusionSampler(model, n_timesteps)
+
+# Load weight templates for the user
+user_weight_template = weight_templates[0]
+user_weight_template = user_weight_template.clone().detach().float().unsqueeze(0)
+
+# Generate deepfake
+generated_image = sampler.sample(user_weight_template)
+generated_image = generated_image.detach().cpu().numpy()
+
+# Reshape to original image dimensions and save or display
+generated_image = generated_image.reshape(128, 128, 1)  # Reshape to 128x128
+
+# Displaying the original and generated images side by side
+fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+# Original image (resized to 128x128 for comparison)
+# original_image = transforms.ToPILImage()(images[0].clone().detach().cpu()).resize((128, 128))
+original_image = transform(images[0].clone().detach().cpu().view(-1, input_size))
+axes[0].imshow(original_image.reshape(128, 128), cmap='gray')
+axes[0].set_title("Original Image")
+axes[0].axis('off')
+
+# Generated image
+axes[1].imshow(generated_image.reshape(128, 128), cmap='gray')
+axes[1].set_title("Generated Image")
+axes[1].axis('off')
+
+# Show the plot
+plt.savefig('diffusion.png')
+plt.close()
