@@ -23,7 +23,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 transform = transforms.Compose([
     transforms.ToPILImage('L'),
     transforms.Resize((128, 128)),
-    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
     transforms.ToTensor()
 ])
 
@@ -279,9 +278,9 @@ test_images = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_test.npy")
 test_weight_templates = np.load(f"Datasets/IITD Palmprint V1/Preprocessed/Left/X_test_pca_{weight_template_size}.npy")
 
 # Preprocessing
-images = torch.tensor(images).float()  # .view(-1, input_size)  # Flatten images
+images = torch.tensor(images).float().view(-1, input_size)  # Flatten images
 weight_templates = torch.tensor(weight_templates).float()
-test_images = torch.tensor(test_images).float()  # .view(-1, input_size)
+test_images = torch.tensor(test_images).float().view(-1, input_size)
 test_weight_templates = torch.tensor(test_weight_templates).float()
 
 # Move data to the appropriate device
