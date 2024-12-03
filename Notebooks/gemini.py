@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 weight_template_size = 128
 # Load the data
-weight_templates = np.load("weight_templates.npy")
-images = np.load(f"Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca_{weight_template_size}.npy")
+weight_templates = np.load(f"Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca_{weight_template_size}.npy")
+images = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy")
 
 # Reshape images to (num_samples, 1, 150, 150)
 images = images.reshape(-1, 1, 150, 150)
