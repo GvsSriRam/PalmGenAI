@@ -19,6 +19,7 @@ transform = transforms.Compose([
     transforms.ToTensor(),
 ])
 
+
 class ConditionalDiffusionModel(nn.Module):
     def __init__(self, input_size, weight_template_size):
         super(ConditionalDiffusionModel, self).__init__()
@@ -57,10 +58,10 @@ class DiffusionTrainer:
     def q_sample(self, x_start, t):
         x_start = x_start.to(device)
         noise = self.sample_noise(x_start.shape).to(x_start.device)
-        
+
         # Correct broadcasting for alpha_bar_t
         alpha_bar_t = self.alpha_bar[t].view(-1, 1)
-        
+
         return torch.sqrt(alpha_bar_t) * x_start + torch.sqrt(1 - alpha_bar_t) * noise
 
     def loss_fn(self, x_noisy, t, x_start, condition):
@@ -70,7 +71,7 @@ class DiffusionTrainer:
     def train(self, data_loader, optimizer, weight_templates, num_epochs=100, patience=10):
         best_loss = float('inf')
         epochs_without_improvement = 0
-        
+
         for epoch in range(num_epochs):
             for i, (x_start, idx) in enumerate(data_loader):
                 x_start = x_start.to(device)
@@ -98,7 +99,7 @@ class DiffusionTrainer:
             val_loss /= len(val_data_loader)
 
             print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
-            
+
             if val_loss < best_loss:
                 best_loss = val_loss
                 best_model_state = copy.deepcopy(self.model.state_dict())  # Save best model weights
@@ -112,6 +113,7 @@ class DiffusionTrainer:
 
             scheduler.step(val_loss)  # Update learning rate based on validation loss
 
+
 # Input image size and weight template size
 input_size = 150 * 150 * 1  # Example for 64x64 RGB images
 weight_template_size = 128  # Assuming your weight template is 256-dimensional
@@ -124,7 +126,8 @@ trainer = DiffusionTrainer(model)
 
 # Load images and weight templates
 images = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy")  # Shape: (N, 64, 64, 3)
-weight_templates = np.load(f"Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca_{weight_template_size}.npy")  # Shape: (N, 256)
+weight_templates = np.load(
+    f"Datasets/IITD Palmprint V1/Preprocessed/Left/X_train_pca_{weight_template_size}.npy")  # Shape: (N, 256)
 test_images = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_test.npy")
 test_weight_templates = np.load(f"Datasets/IITD Palmprint V1/Preprocessed/Left/X_test_pca_{weight_template_size}.npy")
 
@@ -149,6 +152,7 @@ val_data_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
 # Train the model
 trainer.train(data_loader, optimizer, weight_templates, num_epochs=500)
 
+
 class DiffusionSampler:
     def __init__(self, model, timesteps=1000):
         self.model = model
@@ -160,7 +164,9 @@ class DiffusionSampler:
     def p_sample(self, x, t, condition):
         predicted_x_start = self.model(x, condition)
         alpha_bar_t = torch.tensor(self.alpha_bar[t], dtype=torch.float32, device=x.device)
-        alpha_bar_t_prev = torch.tensor(self.alpha_bar[t-1], dtype=torch.float32, device=x.device) if t > 0 else torch.tensor(1.0, dtype=torch.float32, device=x.device)
+        alpha_bar_t_prev = torch.tensor(self.alpha_bar[t - 1], dtype=torch.float32,
+                                        device=x.device) if t > 0 else torch.tensor(1.0, dtype=torch.float32,
+                                                                                    device=x.device)
 
         noise = torch.randn_like(x)
         return predicted_x_start * torch.sqrt(alpha_bar_t_prev) + noise * torch.sqrt(1 - alpha_bar_t_prev)
@@ -172,6 +178,7 @@ class DiffusionSampler:
             for t in reversed(range(self.timesteps)):
                 x = self.p_sample(x, t, condition)
         return x.view(img_shape)
+
 
 # Initialize sampler
 sampler = DiffusionSampler(model)

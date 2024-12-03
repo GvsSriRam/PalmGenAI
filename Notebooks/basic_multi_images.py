@@ -1,17 +1,18 @@
-import copy
-
-import matplotlib.pyplot as plt
-import numpy as np
+import PIL.ImageMode
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
+import numpy as np
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
+import matplotlib.pyplot as plt
+import copy
 from torchvision import transforms
 from torchvision.models import vgg16
+import PIL
 
 # Hyperparameters
-batch_size = 8
+batch_size = 1
 input_size = 150 * 150 * 1  # Example for 64x64 RGB images
 weight_template_size = 64  # Assuming your weight template is 256-dimensional
 lr = 1e-6
@@ -201,21 +202,18 @@ class DiffusionTrainer:
         mse_loss = F.mse_loss(predicted_x_start, x_start)  # Calculate MSE for monitoring
         return mse_loss
 
-    def train(self, data_loader, optimizer, num_epochs=1000, patience=15):
+    def train(self, data_loader, optimizer, weight_templates, num_epochs=1000, patience=15):
         best_loss = float('inf')
         epochs_without_improvement = 0
 
         for epoch in range(num_epochs):
             train_mse = 0.0
-            for i, (x_start, condition) in enumerate(data_loader):
-                print(x_start.shape, condition.shape)
+            for i, (x_start, idx) in enumerate(data_loader):
                 x_start = x_start.to(device)
                 x_start = transform(x_start)  # Apply transformations
-                print(x_start.shape)
                 t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                 x_noisy = self.q_sample(x_start, t).to(x_start.device)
-                condition = condition.to(x_start.device)
-                print(x_noisy.shape, x_start.shape, condition.shape)
+                condition = weight_templates[idx].to(x_start.device)
 
                 mse = self.loss_fn(x_noisy, t, x_start, condition)
                 train_mse += mse.item()
@@ -229,13 +227,12 @@ class DiffusionTrainer:
             val_loss = 0.0
             val_mse = 0.0
             with torch.no_grad():
-                for i, (x_start, condition) in enumerate(val_data_loader):  # Use your validation data loader
+                for i, (x_start, idx) in enumerate(val_data_loader):  # Use your validation data loader
                     x_start = x_start.to(device)
                     x_start = transform(x_start)  # Apply transformations to validation data
                     t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                     x_noisy = self.q_sample(x_start, t)
-                    # condition = weight_templates[idx].to(x_start.device)
-                    condition = condition.to(x_start.device)
+                    condition = weight_templates[idx].to(x_start.device)
                     mse = self.loss_fn(x_noisy, t, x_start, condition)
                     val_mse += mse.item()
             val_mse /= len(val_data_loader)
@@ -279,9 +276,9 @@ test_images = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_test.npy")
 test_weight_templates = np.load(f"Datasets/IITD Palmprint V1/Preprocessed/Left/X_test_pca_{weight_template_size}.npy")
 
 # Preprocessing
-images = torch.tensor(images).float()  # .view(-1, input_size)  # Flatten images
+images = torch.tensor(images).float().view(-1, input_size)  # Flatten images
 weight_templates = torch.tensor(weight_templates).float()
-test_images = torch.tensor(test_images).float()  # .view(-1, input_size)
+test_images = torch.tensor(test_images).float().view(-1, input_size)
 test_weight_templates = torch.tensor(test_weight_templates).float()
 
 # Move data to the appropriate device
@@ -291,13 +288,13 @@ test_images = test_images.to(device)
 test_weight_templates = test_weight_templates.to(device)
 
 # Create dataset and dataloader
-dataset = TensorDataset(images, weight_templates)
+dataset = TensorDataset(images, torch.arange(images.shape[0]))  # Pass indices for weight templates
 data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-val_dataset = TensorDataset(test_images, test_weight_templates)
+val_dataset = TensorDataset(test_images, torch.arange(test_images.shape[0]))
 val_data_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 # Train the model
-trainer.train(data_loader, optimizer, num_epochs=1000)
+trainer.train(data_loader, optimizer, weight_templates, num_epochs=1000)
 
 
 class DiffusionSampler:
@@ -318,14 +315,13 @@ class DiffusionSampler:
         noise = torch.randn_like(x)
         return predicted_x_start * torch.sqrt(alpha_bar_t_prev) + noise * torch.sqrt(1 - alpha_bar_t_prev)
 
-    def sample(self, condition, img_shape=(128, 128, 1)):  # Updated img_shape
-        condition = condition.to(device)
-        condition = condition.unsqueeze(0)
-        x = torch.randn((1, np.prod(img_shape))).to(condition.device)
+    def sample(self, conditions, img_shape=(128, 128, 1)):  # Updated img_shape
+        batch_size = conditions.shape[0]
+        x = torch.randn((batch_size, np.prod(img_shape))).to(conditions.device)
         self.model.eval()
         with torch.no_grad():
             for t in reversed(range(self.timesteps)):
-                x = self.p_sample(x, t, condition)
+                x = self.p_sample(x, t, conditions)
         return x.view(batch_size, *img_shape)
 
 
@@ -333,8 +329,8 @@ class DiffusionSampler:
 sampler = DiffusionSampler(model)
 
 # Load weight templates for the user
-user_weight_template = weight_templates[0]
-user_weight_template = user_weight_template.clone().detach().float().unsqueeze(0)
+user_weight_template = weight_templates[0:1]
+user_weight_template = user_weight_template.clone().detach().float()  # .unsqueeze(0)
 
 # Generate deepfake
 generated_image = sampler.sample(user_weight_template)
