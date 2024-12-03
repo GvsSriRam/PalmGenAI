@@ -290,7 +290,7 @@ val_dataset = TensorDataset(test_images, test_weight_templates)
 val_data_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 # Train the model
-trainer.train(data_loader, optimizer, num_epochs=2)
+trainer.train(data_loader, optimizer, num_epochs=1)
 
 
 class DiffusionSampler:
@@ -342,7 +342,7 @@ fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 # Original image (resized to 128x128 for comparison)
 # original_image = transforms.ToPILImage()(images[0].clone().detach().cpu()).resize((128, 128))
 original_image = transform(images[0].clone().detach().cpu().view(-1, input_size))
-axes[0].imshow(original_image, cmap='gray')
+axes[0].imshow(original_image.reshape(128, 128), cmap='gray')
 axes[0].set_title("Original Image")
 axes[0].axis('off')
 
