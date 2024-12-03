@@ -50,7 +50,7 @@ class UNet(nn.Module):
         self.bottleneck = self.conv_block(256, 512)
 
         # Decoder
-        self.dec4 = self.upconv_block(512, 256)
+        self.dec4 = self.upconv_block(512 + 128, 256)
         self.dec3 = self.upconv_block(256, 128)
         self.dec2 = self.upconv_block(128, 64)
         self.dec1 = self.upconv_block(64, 32)
@@ -71,7 +71,7 @@ class UNet(nn.Module):
     def upconv_block(self, in_channels, out_channels):
         return nn.Sequential(
             nn.ConvTranspose2d(in_channels + 128, out_channels, kernel_size=2, stride=2),  # Add 128 for the condition
-            self.conv_block(in_channels, out_channels),
+            self.conv_block(out_channels, out_channels),
     )
 
     def forward(self, x, condition):
