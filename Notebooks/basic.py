@@ -15,6 +15,7 @@ batch_size = 1
 input_size = 150 * 150 * 1
 weight_template_size = 128
 lr = 1e-5
+n_timesteps = 1000
 
 # Check for GPU availability
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -148,7 +149,7 @@ class ConditionalUNet(nn.Module):
 
 
 class DiffusionTrainer:
-    def __init__(self, model, timesteps=10000):
+    def __init__(self, model, timesteps=1000):
         self.model = model
         self.timesteps = timesteps
         self.beta = np.linspace(1e-4, 0.02, timesteps)  # Linear schedule
@@ -261,7 +262,7 @@ optimizer_adamw = optim.AdamW(model.parameters(), lr=lr)
 optimizer = optimizer_adam
 
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
-trainer = DiffusionTrainer(model)
+trainer = DiffusionTrainer(model, n_timesteps)
 
 # Load images and weight templates
 images = np.load("Datasets/IITD Palmprint V1/Preprocessed/Left/X_train.npy")  # Shape: (N, 64, 64, 3)
@@ -289,7 +290,7 @@ val_dataset = TensorDataset(test_images, test_weight_templates)
 val_data_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 # Train the model
-trainer.train(data_loader, optimizer, num_epochs=1000)
+trainer.train(data_loader, optimizer, num_epochs=2)
 
 
 class DiffusionSampler:
@@ -322,7 +323,7 @@ class DiffusionSampler:
 
 
 # Initialize sampler
-sampler = DiffusionSampler(model)
+sampler = DiffusionSampler(model, n_timesteps)
 
 # Load weight templates for the user
 user_weight_template = weight_templates[0]
@@ -340,7 +341,7 @@ fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
 # Original image (resized to 128x128 for comparison)
 # original_image = transforms.ToPILImage()(images[0].clone().detach().cpu()).resize((128, 128))
-original_image = images[0].clone().detach().cpu().view(128, 128)
+original_image = transform(images[0].clone().detach().cpu())
 axes[0].imshow(original_image, cmap='gray')
 axes[0].set_title("Original Image")
 axes[0].axis('off')
