@@ -341,7 +341,7 @@ fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
 # Original image (resized to 128x128 for comparison)
 # original_image = transforms.ToPILImage()(images[0].clone().detach().cpu()).resize((128, 128))
-original_image = transform(images[0].clone().detach().cpu())
+original_image = transform(images[0].clone().detach().cpu().view(-1, input_size))
 axes[0].imshow(original_image, cmap='gray')
 axes[0].set_title("Original Image")
 axes[0].axis('off')
