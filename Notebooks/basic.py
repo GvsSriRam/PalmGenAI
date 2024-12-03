@@ -14,7 +14,7 @@ from torchvision.models import vgg16
 batch_size = 1
 input_size = 150 * 150 * 1
 weight_template_size = 128
-lr = 1e-6
+lr = 1e-5
 
 # Check for GPU availability
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -339,7 +339,8 @@ generated_image = generated_image.reshape(128, 128, 1)  # Reshape to 128x128
 fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
 # Original image (resized to 128x128 for comparison)
-original_image = transforms.ToPILImage()(images[0].clone().detach().cpu()).resize((128, 128))
+# original_image = transforms.ToPILImage()(images[0].clone().detach().cpu()).resize((128, 128))
+original_image = images[0].clone().detach().cpu().view(128, 128)
 axes[0].imshow(original_image, cmap='gray')
 axes[0].set_title("Original Image")
 axes[0].axis('off')
