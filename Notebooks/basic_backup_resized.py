@@ -101,7 +101,7 @@ class DiffusionTrainer:
                     val_loss += loss.item()
             val_loss /= len(val_data_loader)
 
-            print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
+            print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}, Val Loss: {val_loss:.4f}")
             end = time()
             print(f"Time: {end - start}")
             start = time()

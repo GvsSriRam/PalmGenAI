@@ -9,12 +9,13 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 from torchvision import transforms
 from torchvision.models import vgg16
+from time import time
 
 # Hyperparameters
 batch_size = 1
 input_size = 128 * 128 * 1
 weight_template_size = 128
-lr = 1e-5
+lr = 1e-6
 n_timesteps = 1000
 
 # Check for GPU availability
@@ -199,6 +200,7 @@ class DiffusionTrainer:
     def train(self, data_loader, optimizer, num_epochs=1000, patience=15):
         best_loss = float('inf')
         epochs_without_improvement = 0
+        start = time()
 
         for epoch in range(num_epochs):
             train_mse = 0.0
@@ -235,6 +237,9 @@ class DiffusionTrainer:
             print(f"Epoch [{epoch + 1}/{num_epochs}], "
                   f"Train MSE: {train_mse / len(data_loader):.4f}, "
                   f"Val MSE: {val_mse:.4f}")
+            end = time()
+            print(f"Time: {end - start}")
+            start = time()
 
             if val_loss < best_loss:
                 best_loss = val_loss
