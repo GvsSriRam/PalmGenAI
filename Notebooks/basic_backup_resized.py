@@ -68,6 +68,10 @@ class DiffusionTrainer:
         return torch.sqrt(alpha_bar_t) * x_start + torch.sqrt(1 - alpha_bar_t) * noise
 
     def loss_fn(self, x_noisy, t, x_start, condition):
+        x_start = x_start.to(device)
+        x_noisy = x_noisy.to(device)
+        t = t.to(device)
+        condition = condition.to(device)
         print(x_noisy.device, t.device, x_start.device, condition.device)
         predicted_x_start = self.model(x_noisy, condition)
         return F.mse_loss(predicted_x_start, x_start)
