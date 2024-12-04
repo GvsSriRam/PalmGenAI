@@ -44,8 +44,6 @@ class DoubleConv(nn.Module):
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
         )
-        print("double_conv")
-        print(self.double_conv)
 
     def forward(self, x):
         return self.double_conv(x)
@@ -60,8 +58,6 @@ class Down(nn.Module):
             nn.MaxPool2d(2),
             DoubleConv(in_channels, out_channels)
         )
-        print("down")
-        print(self.maxpool_conv)
 
     def forward(self, x):
         return self.maxpool_conv(x)
@@ -129,71 +125,45 @@ class ConditionalUNet(nn.Module):
         self.outc = OutConv(64, n_classes)
 
     def forward(self, x, condition):
-        print("Unet")
         x = x.view(-1, 1, 128, 128)  # Reshape for 128x128
-        print(x.shape)
         x1 = self.inc(x)
-        print(x1.shape)
         x2 = self.down1(x1)
-        print(x2.shape)
         x3 = self.down2(x2)
-        print(x3.shape)
         x4 = self.down3(x3)
-        print(x4.shape)
 
         x4_flat = x4.flatten(1)
-        print(x4_flat.shape)
         x_concat = torch.cat((x4_flat, condition), dim=-1)
-        print(x_concat.shape)
-        print(x4_flat.device, condition.device, x_concat.device)
 
-        print("FC")
         x = F.relu(nn.Linear(self.fc_in_features + weight_template_size, 16384, device=x_concat.device)(x_concat))
-        print(x.shape)
         # x = F.relu(nn.Linear(32768, 16384, device=x_concat.device)(x))
         # print(x.shape)
         x = F.relu(nn.Linear(16384, 4096, device=x_concat.device)(x))
-        print(x.shape)
         # x = F.relu(nn.Linear(8192, 4096, device=x_concat.device)(x))
         # print(x.shape)
         x = F.relu(nn.Linear(4096, 2048, device=x_concat.device)(x))
-        print(x.shape)
         x = F.relu(nn.Linear(2048, 1024, device=x_concat.device)(x))
-        print(x.shape)
         # x = F.relu(self.fc1(x_concat))
         # print(x.shape)
         x = F.relu(self.fc2(x))
-        print(x.shape)
         # x = self.fc3(x)
         # print(x.shape)
         x = F.relu(nn.Linear(512, 1024, device=x_concat.device)(x))
-        print(x.shape)
         x = F.relu(nn.Linear(1024, 2048, device=x_concat.device)(x))
-        print(x.shape)
         x = F.relu(nn.Linear(2048, 4096, device=x_concat.device)(x))
-        print(x.shape)
         x = F.relu(nn.Linear(4096, 16384, device=x_concat.device)(x))
-        print(x.shape)
         # x = F.relu(nn.Linear(8192, 16384, device=x_concat.device)(x))
         # print(x.shape)
         # x = F.relu(nn.Linear(16384, 32768, device=x_concat.device)(x))
         # print(x.shape)
         x = F.relu(nn.Linear(16384, self.fc_in_features, device=x_concat.device)(x))
-        print(x.shape)
 
         x = x.view(-1, 512 // self.factor, 16, 16)  # Reshape for upsampling
-        print(x.shape)
 
         x = self.up1(x, x3)
-        print(x.shape)
         x = self.up2(x, x2)
-        print(x.shape)
         x = self.up3(x, x1)
-        print(x.shape)
         logits = self.outc(x)
-        print(logits.shape)
         logits = torch.sigmoid(logits)  # Sigmoid for output
-        print(logits.shape)
         return logits.view(-1, 128 * 128)  # Flatten output
 
 
