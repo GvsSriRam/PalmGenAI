@@ -14,7 +14,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Define your transformations
 transform = transforms.Compose([
-    transforms.ToPILImage(),
+    transforms.ToPILImage('L'),
     transforms.ToTensor(),
 ])
 
@@ -156,7 +156,7 @@ val_dataset = TensorDataset(test_images, torch.arange(test_images.shape[0]))
 val_data_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
 
 # Train the model
-trainer.train(data_loader, optimizer, weight_templates, num_epochs=1)
+trainer.train(data_loader, optimizer, weight_templates, num_epochs=500)
 
 
 class DiffusionSampler:
