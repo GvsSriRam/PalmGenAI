@@ -12,7 +12,7 @@ from torchvision.models import vgg16
 from time import time
 
 # Hyperparameters
-batch_size = 4
+batch_size = 64
 input_size = 128 * 128 * 1
 weight_template_size = 128
 lr = 1e-6
@@ -145,8 +145,10 @@ class ConditionalUNet(nn.Module):
         print(x4_flat.shape)
         x_concat = torch.cat((x4_flat, condition), dim=-1)
         print(x_concat.shape)
+        print(x4_flat.device, condition.device, x_concat.device)
 
-
+        print("FC")
+        print(self.fc_in_features.device, weight_template_size.device)
         x = F.relu(nn.Linear(self.fc_in_features + weight_template_size, 32768)(x_concat))
         print(x.shape)
         x = F.relu(nn.Linear(32768, 16384)(x))
