@@ -163,7 +163,7 @@ class ConditionalUNet(nn.Module):
         x = self.up2(x, x2)
         x = self.up3(x, x1)
         logits = self.outc(x)
-        logits = torch.sigmoid(logits)  # Sigmoid for output
+        # logits = torch.sigmoid(logits)  # Sigmoid for output
         return logits.view(-1, 128 * 128)  # Flatten output
 
 
