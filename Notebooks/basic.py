@@ -12,7 +12,7 @@ from torchvision.models import vgg16
 from time import time
 
 # Hyperparameters
-batch_size = 1
+batch_size = 4
 input_size = 128 * 128 * 1
 weight_template_size = 128
 lr = 1e-6
