@@ -124,8 +124,6 @@ class ConditionalUNet(nn.Module):
         self.outc = OutConv(64, n_classes)
 
     def forward(self, x, condition):
-        print("CondUNet devices")
-        print(x.device, condition.device)
         x = x.view(-1, 1, 128, 128)  # Reshape for 128x128
         x1 = self.inc(x)
         x2 = self.down1(x1)
@@ -199,7 +197,6 @@ class DiffusionTrainer:
         return mse_loss
 
     def train(self, data_loader, optimizer, num_epochs=1000, patience=15):
-        print("Diffusion Trainer devices")
         best_loss = float('inf')
         epochs_without_improvement = 0
 
@@ -229,9 +226,7 @@ class DiffusionTrainer:
                     x_start = transform(x_start)  # Apply transformations to validation data
                     t = torch.randint(0, self.timesteps, (x_start.size(0),)).to(x_start.device)
                     x_noisy = self.q_sample(x_start, t)
-                    # condition = weight_templates[idx].to(x_start.device)
                     condition = condition.to(x_start.device)
-                    print(x_start.device, x_noisy.device, condition.device)
                     mse = self.loss_fn(x_noisy, t, x_start, condition)
                     val_mse += mse.item()
             val_mse /= len(val_data_loader)
@@ -293,7 +288,7 @@ val_dataset = TensorDataset(test_images, test_weight_templates)
 val_data_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 # Train the model
-trainer.train(data_loader, optimizer, num_epochs=1)
+trainer.train(data_loader, optimizer, num_epochs=1000)
 
 
 class DiffusionSampler:
