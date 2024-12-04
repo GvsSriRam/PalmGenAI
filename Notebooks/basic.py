@@ -293,7 +293,7 @@ val_dataset = TensorDataset(test_images, test_weight_templates)
 val_data_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 # Train the model
-trainer.train(data_loader, optimizer, num_epochs=1000)
+trainer.train(data_loader, optimizer, num_epochs=10)
 
 
 class DiffusionSampler:
@@ -322,7 +322,7 @@ class DiffusionSampler:
         with torch.no_grad():
             for t in reversed(range(self.timesteps)):
                 x = self.p_sample(x, t, condition)
-        return x.view(batch_size, *img_shape)
+        return x.view(1, *img_shape)
 
 
 # Initialize sampler
