@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader, TensorDataset
 import matplotlib.pyplot as plt
 import copy
 from torchvision import transforms
+from time import time
 
 # Check for GPU availability
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -14,8 +15,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Define your transformations
 transform = transforms.Compose([
     transforms.ToPILImage(),
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomRotation(10),  # Rotate by up to 10 degrees
     transforms.ToTensor(),
 ])
 
@@ -31,14 +30,10 @@ class ConditionalDiffusionModel(nn.Module):
 
     def forward(self, x, condition):
         # Concatenate the image and weight template (condition)
-        print("Cond diff devices")
         x = x.to(device)
         condition = condition.to(device)
-        print(x.device, condition.device)
-        print(x.shape, condition.shape)
         if len(x.shape) == len(condition.shape) + 1:
             x = x.squeeze(0)
-        print(x.shape, condition.shape)
         x = torch.cat((x, condition), dim=-1)
         x = F.relu(self.bn1(self.fc1(x)))
         x = F.relu(self.bn2(self.fc2(x)))
@@ -72,13 +67,13 @@ class DiffusionTrainer:
         x_noisy = x_noisy.to(device)
         t = t.to(device)
         condition = condition.to(device)
-        print(x_noisy.device, t.device, x_start.device, condition.device)
         predicted_x_start = self.model(x_noisy, condition)
         return F.mse_loss(predicted_x_start, x_start)
 
     def train(self, data_loader, optimizer, weight_templates, num_epochs=100, patience=10):
         best_loss = float('inf')
         epochs_without_improvement = 0
+        start = time()
 
         for epoch in range(num_epochs):
             for i, (x_start, idx) in enumerate(data_loader):
@@ -107,6 +102,9 @@ class DiffusionTrainer:
             val_loss /= len(val_data_loader)
 
             print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
+            end = time()
+            print(f"Time: {end - start}")
+            start = time()
 
             if val_loss < best_loss:
                 best_loss = val_loss
