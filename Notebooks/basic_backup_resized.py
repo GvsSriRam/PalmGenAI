@@ -68,6 +68,7 @@ class DiffusionTrainer:
         return torch.sqrt(alpha_bar_t) * x_start + torch.sqrt(1 - alpha_bar_t) * noise
 
     def loss_fn(self, x_noisy, t, x_start, condition):
+        print(x_noisy.device, t.device, x_start.device, condition.device)
         predicted_x_start = self.model(x_noisy, condition)
         return F.mse_loss(predicted_x_start, x_start)
 
@@ -153,7 +154,7 @@ val_dataset = TensorDataset(test_images, torch.arange(test_images.shape[0]))
 val_data_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
 
 # Train the model
-trainer.train(data_loader, optimizer, weight_templates, num_epochs=500)
+trainer.train(data_loader, optimizer, weight_templates, num_epochs=1)
 
 
 class DiffusionSampler:
