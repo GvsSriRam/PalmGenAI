@@ -148,7 +148,6 @@ class ConditionalUNet(nn.Module):
         print(x4_flat.device, condition.device, x_concat.device)
 
         print("FC")
-        print(self.fc_in_features.device, weight_template_size.device)
         x = F.relu(nn.Linear(self.fc_in_features + weight_template_size, 32768)(x_concat))
         print(x.shape)
         x = F.relu(nn.Linear(32768, 16384)(x))
