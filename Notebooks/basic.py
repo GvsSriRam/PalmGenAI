@@ -12,7 +12,7 @@ from torchvision.models import vgg16
 from time import time
 
 # Hyperparameters
-batch_size = 4
+batch_size = 64
 input_size = 128 * 128 * 1
 weight_template_size = 128
 lr = 1e-6
@@ -293,7 +293,7 @@ val_dataset = TensorDataset(test_images, test_weight_templates)
 val_data_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 # Train the model
-trainer.train(data_loader, optimizer, num_epochs=10)
+trainer.train(data_loader, optimizer, num_epochs=1000)
 
 
 class DiffusionSampler:
