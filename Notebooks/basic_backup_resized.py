@@ -32,6 +32,8 @@ class ConditionalDiffusionModel(nn.Module):
     def forward(self, x, condition):
         # Concatenate the image and weight template (condition)
         print("Cond diff devices")
+        x = x.to(device)
+        condition = condition.to(device)
         print(x.device, condition.device)
         print(x.shape, condition.shape)
         if len(x.shape) == len(condition.shape) + 1:
