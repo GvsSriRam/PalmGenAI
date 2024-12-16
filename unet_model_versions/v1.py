@@ -384,3 +384,17 @@ axes[1].axis('off')
 # Show the plot
 plt.savefig('diffusion_basic.png')
 plt.close()
+
+def generate_images(weight_templates, sampler):
+    generated_images = []
+    for i in range(weight_templates.shape[0]):
+        user_weight_template = weight_templates[i].clone().detach().float().unsqueeze(0)
+        generated_image = sampler.sample(user_weight_template)
+        generated_image = generated_image.detach().cpu().numpy()
+        generated_images.append(generated_image)
+    return np.array(generated_images)
+
+generated_train_images = generate_images(weight_templates, sampler)
+generated_val_images = generate_images(test_weight_templates, sampler)
+np.save('generated_train_images.npy', generated_train_images)
+np.save('generated_val_images.npy', generated_val_images) 
